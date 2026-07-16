@@ -1,0 +1,48 @@
+name: Governed outcome
+description: Propose one executable Project Truss outcome.
+title: ""
+labels: []
+body:
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Outcome
+      description: State the observable result, not the intermediate artifact.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context or behavioral delta
+      description: Describe current behavior and the smallest intended change.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope and non-goals
+      description: Bound included work and explicitly excluded work.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Use checkboxes for observable, independently verifiable criteria.
+      value: "- [ ] "
+    validations:
+      required: true
+  - type: textarea
+    id: verification
+    attributes:
+      label: Verification basis
+      description: Name the evidence and repository-profile checks that will prove the outcome.
+    validations:
+      required: true
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Constraints, risks, and authority
+      description: Record material boundaries, risks, and external-action authority.
+    validations:
+      required: true

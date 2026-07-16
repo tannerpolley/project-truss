@@ -1,0 +1,30 @@
+{
+  "authoritative": false,
+  "observed_at": "2026-07-15T00:00:00Z",
+  "repository": "example/project",
+  "issue": {
+    "number": 300,
+    "title": "Release coordinated outcome",
+    "state": "OPEN",
+    "url": "https://github.example/issues/300",
+    "body": "## Outcome\n\nRelease one coordinated outcome.\n\n## Context or behavioral delta\n\nTwo units must converge.\n\n## Scope and non-goals\n\nNo project board or local mirror.\n\n## Acceptance criteria\n\n- [ ] Both leaves and integration are verified.\n\n## Verification basis\n\nLeaf checks and integrated health.\n\n## Constraints, risks, and authority\n\nNo external mutation in this fixture."
+  },
+  "assignees": [],
+  "children": [
+    {"number": 301, "title": "First leaf", "state": "OPEN", "url": "https://github.example/issues/301", "lifecycle_state": "Ready"},
+    {"number": 302, "title": "Second leaf", "state": "OPEN", "url": "https://github.example/issues/302", "lifecycle_state": "Blocked"}
+  ],
+  "blocked_by": [],
+  "blocking": [],
+  "closing_prs": [],
+  "comments": [],
+  "source_urls": [
+    "https://github.example/issues/300",
+    "https://github.example/issues/301",
+    "https://github.example/issues/302",
+    "https://github.example/milestones/4"
+  ],
+  "provider_findings": [],
+  "milestone": {"number": 4, "title": "Release", "state": "OPEN", "url": "https://github.example/milestones/4"},
+  "trial_dependency_edges": [{"blocked": 302, "blocked_by": 301}]
+}

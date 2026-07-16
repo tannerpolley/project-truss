@@ -1,0 +1,29 @@
+version: 1
+public_skill: start
+skills: [start, shape, deliver, close, advanced-user-input]
+hard_triggers:
+  - explicit
+  - merge_or_publication
+  - release_or_milestone
+  - multiple_independent_units
+  - multi_agent_delegation
+  - exceeds_safe_context
+issue_sections:
+  - Outcome
+  - Context or behavioral delta
+  - Scope and non-goals
+  - Acceptance criteria
+  - Verification basis
+  - Constraints, risks, and authority
+receipts: [claim, blocker_or_decision, handoff, verified_closeout]
+blockers:
+  - authority_required
+  - decision_required
+  - github_capability_missing
+  - contract_incomplete
+  - dependency_blocked
+  - claim_conflict
+  - verification_failed
+  - integration_unhealthy
+  - state_contradiction
+  - external_state_unavailable

@@ -1,0 +1,20 @@
+{
+  "authoritative": false,
+  "observed_at": "2026-07-15T00:00:00Z",
+  "repository": "example/project",
+  "issue": {
+    "number": 201,
+    "title": "Ship one governed change",
+    "state": "OPEN",
+    "url": "https://github.example/issues/201",
+    "body": "## Outcome\n\nShip one governed change.\n\n## Context or behavioral delta\n\nCurrent behavior lacks the change.\n\n## Scope and non-goals\n\nOne mergeable unit only.\n\n## Acceptance criteria\n\n- [ ] The change is verified.\n\n## Verification basis\n\nBehavior test and pull-request checks.\n\n## Constraints, risks, and authority\n\nNo external mutation in this fixture."
+  },
+  "assignees": [],
+  "children": [],
+  "blocked_by": [],
+  "blocking": [],
+  "closing_prs": [],
+  "comments": [],
+  "source_urls": ["https://github.example/issues/201"],
+  "provider_findings": []
+}

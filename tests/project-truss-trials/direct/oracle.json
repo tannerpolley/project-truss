@@ -1,0 +1,7 @@
+{
+  "scenario": "direct",
+  "expected_outcome": "pass",
+  "max_user_input_calls": 0,
+  "max_truss_artifacts": 0,
+  "expected_file": {"path": "result.txt", "text": "complete\n"}
+}

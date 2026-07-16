@@ -1,0 +1,15 @@
+.codex-local/
+.tmp/
+logs/
+*.log
+*.tmp
+*.bak
+__pycache__/
+.venv/
+node_modules/
+.idea/
+.chatgpt/
+.superpowers/
+.project-truss/
+.worktrees/
+plans/**/preview.html

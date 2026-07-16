@@ -1,0 +1,9 @@
+.git
+.idea
+.chatgpt
+.superpowers
+plans/**/preview.html
+**/.DS_Store
+**/node_modules
+**/.pytest_cache
+**/__pycache__

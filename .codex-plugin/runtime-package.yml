@@ -1,0 +1,10 @@
+version: 1
+include:
+  - .codex-plugin/plugin.json
+  - .codex-plugin/runtime-package.yml
+  - assets/**
+  - scripts/**
+  - skills/**
+  - docs/project-truss/contract.yml
+  - docs/project-truss/METHODS.md
+  - docs/project-truss/README.md

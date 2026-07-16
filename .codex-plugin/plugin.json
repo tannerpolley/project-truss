@@ -1,0 +1,36 @@
+{
+  "name": "project-truss",
+  "version": "1.0.0",
+  "description": "Lean GitHub-native outcome coordination for coding agents, with direct work left direct.",
+  "author": {
+    "name": "Tanner Polley"
+  },
+  "homepage": "https://github.com/tannerpolley/project-truss",
+  "repository": "https://github.com/tannerpolley/project-truss",
+  "license": "MIT",
+  "keywords": [
+    "codex",
+    "github-issues",
+    "agent-coordination",
+    "project-management"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Project Truss",
+    "shortDescription": "Adaptive GitHub coordination for durable coding outcomes.",
+    "longDescription": "Project Truss keeps ordinary coding direct and adds the smallest native GitHub structure needed for multi-step outcomes, delegation, publication, re-entry, and truthful closeout.",
+    "developerName": "Tanner Polley",
+    "category": "Productivity",
+    "brandColor": "#0F766E",
+    "composerIcon": "./assets/icon.png",
+    "logo": "./assets/icon.png",
+    "capabilities": [
+      "Planning",
+      "GitHub",
+      "Workflow"
+    ],
+    "defaultPrompt": [
+      "Use $project-truss:start only for explicit or hard-trigger governed work; ordinary coding stays direct."
+    ]
+  }
+}

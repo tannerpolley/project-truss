@@ -1,0 +1,1 @@
+Change `result.txt` from `pending` to `complete`. This is one ordinary local edit: do not publish, create planning or coordination artifacts, ask a workflow question, or use Project Truss. Verify the file, then return the required structured result with outcome `pass`, no blocker, and no source URLs.

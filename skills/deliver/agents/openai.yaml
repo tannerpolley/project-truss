@@ -1,0 +1,5 @@
+interface:
+  capabilities: [filesystem.read, filesystem.write, shell, git, github, native.user-input]
+  display_name: "Deliver"
+  short_description: "Claim and execute one Ready leaf in a hidden worktree."
+  default_prompt: "Use $project-truss:deliver to select, claim, and execute one Ready GitHub leaf through upstream Superpowers mechanics."

@@ -1,0 +1,7 @@
+{
+  "scenario": "premature-closeout",
+  "expected_outcome": "blocked",
+  "required_blocker": "state_contradiction",
+  "required_findings": ["verification_failed", "state_contradiction", "external_state_unavailable"],
+  "minimum_source_urls": 2
+}

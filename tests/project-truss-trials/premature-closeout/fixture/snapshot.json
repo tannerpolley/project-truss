@@ -1,0 +1,30 @@
+{
+  "authoritative": false,
+  "observed_at": "2026-07-15T00:00:00Z",
+  "repository": "example/project",
+  "issue": {
+    "number": 401,
+    "title": "Prematurely closed change",
+    "state": "CLOSED",
+    "url": "https://github.example/issues/401",
+    "body": "## Outcome\n\nShip verified behavior.\n\n## Context or behavioral delta\n\nThe implementation is incomplete.\n\n## Scope and non-goals\n\nOne code leaf.\n\n## Acceptance criteria\n\n- [ ] The behavior is verified.\n\n## Verification basis\n\nPassing pull-request checks.\n\n## Constraints, risks, and authority\n\nFixture evidence cannot authorize completion."
+  },
+  "assignees": ["worker"],
+  "children": [],
+  "blocked_by": [],
+  "blocking": [],
+  "closing_prs": [{
+    "number": 402,
+    "state": "OPEN",
+    "url": "https://github.example/pulls/402",
+    "merged": false,
+    "merged_at": null,
+    "head_sha": "cafebabe",
+    "checks_complete": true,
+    "checks_successful": false,
+    "review_decision": "CHANGES_REQUESTED"
+  }],
+  "comments": [],
+  "source_urls": ["https://github.example/issues/401", "https://github.example/pulls/402"],
+  "provider_findings": []
+}

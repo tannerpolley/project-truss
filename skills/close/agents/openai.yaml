@@ -1,0 +1,5 @@
+interface:
+  capabilities: [filesystem.read, filesystem.write, shell, git, github, native.user-input]
+  display_name: "Close"
+  short_description: "Verify, merge, roll up, and retire one governed outcome."
+  default_prompt: "Use $project-truss:close to prove current acceptance and integration before merge or completion."
