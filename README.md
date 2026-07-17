@@ -116,6 +116,8 @@ Truss also stops rather than guessing when provider truth is unavailable, issue 
 
 Project Truss coordinates durable outcomes; it does not duplicate coding technique. Upstream Superpowers owns brainstorming, planning, debugging, worktrees, implementation, review, and verification mechanics.
 
+Superpowers files under `docs/superpowers/specs/` and `docs/superpowers/plans/` are active, change-specific working artifacts. Project Truss closeout blocks them from accumulating in the final integrated tree: delete them after the change is durable in Git and GitHub, or move lasting material to that repository's canonical documentation location. In this source repository, `docs/project-truss/` holds Project Truss's own durable product and runtime documentation; it complements Superpowers and does not replace it.
+
 Seven optional [method cards](docs/project-truss/METHODS.md) add adversarial clarification, domain invariants, codebase wayfinding, causal diagnosis, architecture pressure testing, ruthless triage, and independently verifiable decomposition. A card loads only when its trigger matches a real reasoning gap; the cards are not mandatory stages.
 
 ## Maintainer reference
