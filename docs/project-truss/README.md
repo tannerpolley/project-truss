@@ -25,3 +25,9 @@ Every leaf uses the six headings in `contract.yml`. State is derived as Ready, C
 - `advanced-user-input`: material questions and authority boundaries.
 
 Project Truss delegates coding mechanics to upstream Superpowers and loads method cards from `METHODS.md` only when their triggers match.
+
+## Working artifacts
+
+Superpowers specs and plans under `docs/superpowers/specs/` and `docs/superpowers/plans/` are active inputs for one change, not a permanent Truss record. Before closeout, delete completed working files or move genuinely lasting material to the target repository's own canonical documentation location. Closeout reports exact remaining paths and blocks the outcome as unhealthy integration. Active files for unfinished child work remain isolated on that child's branch or worktree.
+
+This plugin's `docs/project-truss/` directory is different: it contains the durable runtime contract and product guidance shipped by Project Truss itself. It complements Superpowers rather than replacing it, and it is not the required destination for documentation in other repositories.

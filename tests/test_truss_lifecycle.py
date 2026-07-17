@@ -1,10 +1,15 @@
+from contextlib import redirect_stdout
+from io import StringIO
 import json
 import subprocess
 import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
+from scripts.lib.command_support import Context
+from scripts.lib.commands.project import command_project_truss
 from scripts.lib.truss_github import GitHubClient, GitHubObservationError, load_fixture
 from scripts.lib.truss_policy import (
     FinalHealth,
@@ -173,6 +178,42 @@ class LifecycleAndDigestTests(unittest.TestCase):
 
 
 class TruthfulCloseoutTests(unittest.TestCase):
+    def test_closeout_retires_superpowers_working_artifacts_from_the_final_tree(self):
+        current = snapshot(
+            issue={"number": 129, "title": "core", "state": "CLOSED", "body": VALID_BODY, "url": "https://github.example/issues/129"},
+            assignees=["one"],
+            closing_prs=[passing_pr()],
+        )
+        health = json.dumps({"verification_passed": True, "integration_healthy": True, "source_clean": True, "head_sha": "abc123"})
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            ctx = Context(ROOT / "scripts/project-truss.sh", ROOT, "scripts/project-truss.sh", "project-truss.sh", [], invocation_cwd=root)
+
+            def closeout():
+                output = StringIO()
+                with redirect_stdout(output):
+                    code = command_project_truss(ctx, {"Action": "Closeout", "Repository": "owner/repo", "Issue": 129, "HealthJson": health})
+                return code, json.loads(output.getvalue())
+
+            with patch("scripts.lib.commands.project.GitHubClient") as github:
+                github.return_value.snapshot.return_value = current
+                code, payload = closeout()
+                self.assertEqual((0, []), (code, payload["unretired_artifacts"]))
+                (root / "docs/superpowers/specs").mkdir(parents=True)
+                (root / "docs/superpowers/plans/nested").mkdir(parents=True)
+                code, payload = closeout()
+                self.assertEqual((0, []), (code, payload["unretired_artifacts"]))
+                (root / "docs/superpowers/specs/feature.md").write_text("working spec", encoding="utf-8")
+                (root / "docs/superpowers/plans/nested/steps.md").write_text("working plan", encoding="utf-8")
+                code, payload = closeout()
+
+        self.assertEqual(1, code)
+        self.assertIn("integration_unhealthy", payload["findings"])
+        self.assertEqual(
+            ["docs/superpowers/plans/nested/steps.md", "docs/superpowers/specs/feature.md"],
+            payload["unretired_artifacts"],
+        )
+
     def test_code_leaf_closeout_requires_exactly_one_current_claim(self):
         current = snapshot(
             issue={"number": 129, "title": "core", "state": "CLOSED", "body": VALID_BODY, "url": "https://github.example/issues/129"},
