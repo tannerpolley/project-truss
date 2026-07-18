@@ -46,6 +46,38 @@ class SkillSlimmingTests(unittest.TestCase):
                 self.assertIn(phrase, text, f"{name}: {phrase}")
             self.assertIn("docs/project-truss/contract.yml", text, name)
 
+    def test_working_artifacts_retire_at_the_shape_boundary(self):
+        shape = (ROOT / "skills/shape/SKILL.md").read_text(encoding="utf-8").casefold()
+        for phrase in (
+            "synthesize",
+            "scope and non-goals",
+            "invariants",
+            "tolerances",
+            "dependencies",
+            "validation evidence",
+            "unretired_artifacts",
+        ):
+            self.assertIn(phrase, shape)
+        self.assertLess(shape.index("re-read"), shape.index("delete"))
+
+        deliver = (ROOT / "skills/deliver/SKILL.md").read_text(encoding="utf-8").casefold()
+        for phrase in (
+            "unretired_artifacts",
+            "implementationbase",
+            "implementation_artifact_history",
+            "before every implementation commit",
+            "assignee",
+            "branch",
+            "worktree",
+            "implementation",
+        ):
+            self.assertIn(phrase, deliver)
+        self.assertLess(deliver.index("unretired_artifacts"), deliver.index("add exactly one assignee"))
+
+        close = (ROOT / "skills/close/SKILL.md").read_text(encoding="utf-8").casefold()
+        for phrase in ("defense-in-depth", "implementationbase", "implementation_artifact_history"):
+            self.assertIn(phrase, close)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -29,3 +29,11 @@ gh api --method POST "repos/$repo/issues/$blocked/dependencies/blocked_by" --hea
 ```
 
 Create a milestone only for the full release shape. After every mutation, re-read the authoritative issue, sub-issue, dependency, and milestone state; report exact URLs. Stop on missing relationship support rather than inventing a compatibility layer.
+
+## Retire shaping inputs
+
+Superpowers specs and plans under `docs/superpowers/specs/` and `docs/superpowers/plans/` are temporary shaping inputs. Synthesize them into the smallest issue shape; do not paste them verbatim or create a local duplicate of the issue.
+
+After creation, re-read every issue and native relationship. Verify that GitHub preserves the outcome, context, scope and non-goals, architectural or scientific invariants, constraints and tolerances, dependencies, acceptance criteria, and required validation evidence. If creation or verification fails, retain the files while correcting GitHub. Do not delete them early.
+
+Once verification succeeds, GitHub is authoritative. Promote lasting insight to the repository's canonical documentation, delete the duplicate working files immediately, then re-run live `Status`. Do not hand off a Ready leaf unless `unretired_artifacts` is empty; retirement must precede claim, delivery, branch or worktree creation, and implementation.
