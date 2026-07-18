@@ -14,7 +14,7 @@ The entry point classifies the request with `scripts/project-truss.sh -Action Pl
 - several units: parent plus leaf sub-issues and necessary dependencies;
 - coordinated release or deadline: milestone plus parent and leaves.
 
-Every leaf uses the six headings in `contract.yml`. State is derived as Ready, Claimed, In review, Blocked, or Done. There is no separate task store.
+Every leaf uses the six headings in `contract.yml`. State is derived as Ready, Claimed, In review, Blocked, or Done. Ready additionally requires all temporary Superpowers shaping inputs to be retired. There is no separate task store.
 
 ## Skills
 
@@ -28,6 +28,10 @@ Project Truss delegates coding mechanics to upstream Superpowers and loads metho
 
 ## Working artifacts
 
-Superpowers specs and plans under `docs/superpowers/specs/` and `docs/superpowers/plans/` are active inputs for one change, not a permanent Truss record. Before closeout, delete completed working files or move genuinely lasting material to the target repository's own canonical documentation location. Closeout reports exact remaining paths and blocks the outcome as unhealthy integration. Active files for unfinished child work remain isolated on that child's branch or worktree.
+Superpowers specs and plans under `docs/superpowers/specs/` and `docs/superpowers/plans/` are temporary inputs used only to shape governed work. Shape synthesizes rather than copies them into the smallest native GitHub structure, then re-reads every issue and relationship. It verifies preservation of the outcome, scope and non-scope, architectural or scientific invariants, constraints and tolerances, dependencies, acceptance criteria, and required validation evidence.
+
+If issue creation or verification fails, retain the files while correcting GitHub. Once verification succeeds, GitHub is authoritative: promote lasting insight to the target repository's canonical documentation and delete the duplicate files immediately. Live Status reports exact `unretired_artifacts`, exposes no Ready frontier while the list is non-empty, and blocks claim or implementation.
+
+Deliver records the full pre-branch commit in the claim receipt as `ImplementationBase`. Base-bound Status reports `implementation_artifact_history` when any implementation commit touched a working-artifact path, even after deletion. Both lists must be empty before implementation, before every implementation commit, and before handoff; a contaminated branch must be recreated from its verified base. Closeout repeats the same base-bound checks as defense-in-depth. This prevents temporary files from entering implementation history and aggregate change counts rather than merely deleting them from the final tree.
 
 This plugin's `docs/project-truss/` directory is different: it contains the durable runtime contract and product guidance shipped by Project Truss itself. It complements Superpowers rather than replacing it, and it is not the required destination for documentation in other repositories.

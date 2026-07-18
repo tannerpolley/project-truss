@@ -14,7 +14,7 @@ Repository Profile: application-development
 - Governed lifecycle truth comes from GitHub, Git, CI, and current worktrees. Do not add a second persistent state store.
 - Keep durable issue comments to claim/start, blocker or decision, handoff, and verified closeout.
 - Use hidden Codex worktrees for issue implementation. After merge, restore canonical local `main` with no feature branch or linked worktree.
-- Product documentation belongs under `docs/project-truss/`. Local specs and plans are temporary working artifacts; retire them once GitHub and Git history make them redundant.
+- Product documentation belongs under `docs/project-truss/`. Superpowers specs and plans are temporary shaping inputs: retain them through GitHub issue creation and verification, then delete them before Ready claim, delivery, or an implementation branch/worktree. Retain them on failed verification, promote only lasting insight to canonical documentation, and use the recorded implementation-base commit to prove they never enter implementation history.
 - Repository profiles select verification behavior. Scientific repositories use domain invariants and engineering tolerances; application repositories use meaningful behavior, integration, and product acceptance.
 
 ## Required Post-Revision Loop

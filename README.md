@@ -70,8 +70,8 @@ Use $project-truss:start to resume tannerpolley/project-truss#138 from current G
 Project Truss owns one outcome through four responsibilities:
 
 1. **Start** classifies the request as direct or governed and reconstructs existing work from current evidence.
-2. **Shape** creates the smallest useful native GitHub structure.
-3. **Deliver** selects and claims one Ready leaf, obtains a hidden worktree, and routes implementation through upstream Superpowers.
+2. **Shape** creates the smallest useful native GitHub structure, verifies it preserves the temporary planning inputs, and retires those inputs.
+3. **Deliver** selects and claims one Ready leaf only after no Superpowers working artifacts remain, obtains a hidden worktree, and routes implementation through upstream Superpowers.
 4. **Close** verifies acceptance, review, CI, merge identity, descendants, integration, and source health before closing or rolling up.
 
 The five installed skills are `start`, `shape`, `deliver`, `close`, and `advanced-user-input`; you normally invoke only `start`, while `advanced-user-input` supports the lifecycle only when a material decision or authority boundary needs you.
@@ -94,7 +94,7 @@ Each executable issue states its outcome, behavioral context, scope and non-goal
 
 Project Truss derives state rather than storing its own copy:
 
-- **Ready:** the issue contract is executable and dependencies are complete;
+- **Ready:** the issue contract is executable, dependencies are complete, and temporary Superpowers working artifacts are retired;
 - **Claimed:** exactly one owner has claimed the leaf;
 - **In review:** a current pull request is open;
 - **Blocked:** dependency, ownership, verification, authority, provider, or state evidence prevents safe progress;
@@ -116,7 +116,9 @@ Truss also stops rather than guessing when provider truth is unavailable, issue 
 
 Project Truss coordinates durable outcomes; it does not duplicate coding technique. Upstream Superpowers owns brainstorming, planning, debugging, worktrees, implementation, review, and verification mechanics.
 
-Superpowers files under `docs/superpowers/specs/` and `docs/superpowers/plans/` are active, change-specific working artifacts. Project Truss closeout blocks them from accumulating in the final integrated tree: delete them after the change is durable in Git and GitHub, or move lasting material to that repository's canonical documentation location. In this source repository, `docs/project-truss/` holds Project Truss's own durable product and runtime documentation; it complements Superpowers and does not replace it.
+Superpowers files under `docs/superpowers/specs/` and `docs/superpowers/plans/` are temporary shaping inputs. Shape synthesizes them into the smallest native GitHub issue or hierarchy, re-reads the result, and verifies that outcome, scope and non-scope, invariants, constraints and tolerances, dependencies, acceptance, and validation evidence survived. Failed creation or verification retains the files for correction; successful verification makes GitHub authoritative, promotes lasting insight to canonical repository documentation, and deletes the duplicate files immediately.
+
+Status exposes exact `unretired_artifacts` and no Ready frontier while any such file remains. Deliver therefore refuses assignment, claim, implementation branches/worktrees, and implementation until the list is empty. At claim, Deliver records the full pre-branch commit and uses it as `ImplementationBase`; base-bound Status reports `implementation_artifact_history` when any later commit touched a working-artifact path, even if the file was deleted. Deliver repeats both checks before every implementation commit, and contaminated branches must be recreated from the verified base so the files never enter implementation history or change counts. Closeout repeats the base-bound check as defense-in-depth. In this source repository, `docs/project-truss/` holds Project Truss's own durable product and runtime documentation; it complements Superpowers and does not replace it.
 
 Seven optional [method cards](docs/project-truss/METHODS.md) add adversarial clarification, domain invariants, codebase wayfinding, causal diagnosis, architecture pressure testing, ruthless triage, and independently verifiable decomposition. A card loads only when its trigger matches a real reasoning gap; the cards are not mandatory stages.
 
