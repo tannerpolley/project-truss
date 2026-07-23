@@ -1,6 +1,7 @@
 """Strict current-state GitHub observation for Project Truss."""
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime, timezone
 import json
 from pathlib import Path
@@ -26,7 +27,7 @@ query($owner:String!,$repo:String!,$number:Int!){
       blockedBy(first:100){nodes{id number title state url} pageInfo{hasNextPage}}
       blocking(first:100){nodes{id number title state url} pageInfo{hasNextPage}}
       closedByPullRequestsReferences(first:20){nodes{number state merged mergedAt url headRefOid} pageInfo{hasNextPage}}
-      comments(last:20){nodes{author{login} body createdAt url} pageInfo{hasNextPage}}
+      comments(first:100){nodes{author{login} body createdAt url} pageInfo{hasNextPage}}
     }
   }
 }
@@ -40,6 +41,50 @@ class GitHubObservationError(RuntimeError):
         super().__init__(f"{code}: {message}")
 
 
+@dataclass(frozen=True)
+class ProjectProjection:
+    owner: str
+    project: int
+    url: str
+    ensure: bool
+
+    @classmethod
+    def from_mapping(cls, data: Any) -> "ProjectProjection":
+        if not isinstance(data, Mapping) or set(data) != {"owner", "project", "url", "ensure"}:
+            raise ValueError("projection requires exactly owner, project, url, and ensure")
+        if not isinstance(data["owner"], str) or not isinstance(data["url"], str):
+            raise ValueError("projection owner and url must be strings")
+        if type(data["ensure"]) is not bool:
+            raise ValueError("projection ensure must be boolean")
+        return cls(data["owner"], data["project"], data["url"], data["ensure"])
+
+
+def project_commands(target: ProjectProjection) -> dict[str, list[str]]:
+    if not target.owner.strip() or type(target.project) is not int or target.project < 1 or not target.url.strip():
+        raise ValueError("Project owner, positive project number, and item URL are required")
+    common = [str(target.project), "--owner", target.owner, "--format", "json"]
+    return {"view": ["gh", "project", "view", *common],
+            "list": ["gh", "project", "item-list", *common, "--limit", "1000"],
+            "add": ["gh", "project", "item-add", *common, "--url", target.url]}
+
+
+def project_item_membership(payload: Mapping[str, Any], target_url: str) -> bool:
+    items = payload.get("items")
+    total = payload.get("totalCount")
+    if not isinstance(items, list) or type(total) is not int or total < 0:
+        raise GitHubObservationError("github_capability_missing", "Project item-list output is incomplete")
+    if total != len(items):
+        raise GitHubObservationError("github_capability_missing", "Project item-list output is truncated")
+    matches = 0
+    for item in items:
+        if not isinstance(item, Mapping):
+            raise GitHubObservationError("github_capability_missing", "Project item-list entry is malformed")
+        content = item.get("content")
+        observed = content.get("url") if isinstance(content, Mapping) else item.get("url")
+        matches += observed == target_url
+    if matches > 1:
+        raise GitHubObservationError("github_capability_missing", "Project contains duplicate memberships")
+    return matches == 1
 def _strict_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     result: dict[str, Any] = {}
     for key, value in pairs:
@@ -83,6 +128,29 @@ class GitHubClient:
         except (TypeError, ValueError, json.JSONDecodeError) as exc:
             raise GitHubObservationError("external_state_unavailable", f"invalid provider JSON: {exc}") from exc
 
+    def project_membership(self, target: ProjectProjection) -> dict[str, Any]:
+        commands = project_commands(target)
+        try:
+            view = self._json(commands["view"])
+            if not isinstance(view, Mapping) or not isinstance(view.get("url"), str):
+                raise GitHubObservationError("github_capability_missing", "Project URL is unavailable")
+            items = self._json(commands["list"])
+            if not isinstance(items, Mapping):
+                raise GitHubObservationError("github_capability_missing", "Project items are unavailable")
+            member = project_item_membership(items, target.url)
+            if target.ensure and not member:
+                self._json(commands["add"])
+                refreshed = self._json(commands["list"])
+                if not isinstance(refreshed, Mapping):
+                    raise GitHubObservationError("github_capability_missing", "Project items are unavailable")
+                member = project_item_membership(refreshed, target.url)
+                if not member:
+                    raise GitHubObservationError(
+                        "github_capability_missing", "Project membership was not verified"
+                    )
+            return {"project_url": view["url"], "item_url": target.url, "member": member}
+        except GitHubObservationError as exc:
+            raise GitHubObservationError("github_capability_missing", str(exc)) from exc
     @staticmethod
     def _connection(issue: Mapping[str, Any], name: str) -> list[Mapping[str, Any]]:
         value = issue.get(name)

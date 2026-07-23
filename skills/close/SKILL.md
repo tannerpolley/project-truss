@@ -1,24 +1,29 @@
 ---
 name: close
-description: Use when Project Truss must verify, merge, roll up, and retire a governed outcome from fresh repository and GitHub evidence.
+description: Use when Project Truss must review, verify, merge, roll up, and retire a governed singleton or resolution set from fresh evidence.
 ---
 
 # Project Truss Close
 
-Apply `docs/project-truss/contract.yml`. Completion is derived from current GitHub, Git, CI, repository health, and working-artifact state.
+Apply `docs/project-truss/contract.yml`. Re-read every selected leaf, canonical receipt, assignee, dependency, human comment, closing pull request, review state, check run, current head, worktree, and optional Project target.
 
-## Prove the leaf
+## Two-axis review
 
-Run repository-profile-selected verification and upstream `superpowers:verification-before-completion`. Re-read the issue, acceptance checkboxes, assignee, dependencies, comments, closing pull request, review state, check runs, and current head. Read the full implementation-base commit from the claim receipt, run Status with `-ImplementationBase <full-base-commit>`, and require both `unretired_artifacts` and `implementation_artifact_history` to be empty. Do not merge or close while that evidence is incomplete.
+Use Matt `code-review` against the recorded implementation base:
 
-If merge or parent-close authority is absent, ask once through `advanced-user-input`. For a code leaf, use upstream `superpowers:finishing-a-development-branch`, guard the selected head, merge, and then re-read live state. For a parent, close it only after every required child and integrated health check pass.
+- run Standards once over the shared diff using repository instructions plus the smell baseline;
+- run Spec separately against every selected leaf and attribute each finding to that ticket.
 
-A correct governed flow retired Superpowers working files immediately after Shape verified GitHub, before claim or implementation. Treat any file now present under `docs/superpowers/specs/` or `docs/superpowers/plans/` as an earlier lifecycle violation, not expected closeout work. The closeout scan is defense-in-depth: stop rather than merge or close, and do not hide the violation with an ignore rule or unverifiable deletion.
+Do not merge with unresolved findings. A missing required review method is `method_capability_missing`.
 
-After the authorized transition, invoke `scripts/project-truss.sh -Action Closeout -ImplementationBase <full-base-commit>` with final health bound to the closing pull-request head and `source_clean` from a fresh status check. Closeout automatically reports current `unretired_artifacts` and committed `implementation_artifact_history` and treats either as unhealthy integration. This current-session health is cooperative evidence, not host cryptographic attestation; do not claim otherwise. Show concise evidence and findings. A code leaf requires exactly one owner, one merged closing pull request, completed successful checks, no unresolved review decision, checked acceptance, healthy integration, clean source state, no working artifacts in the tree or implementation history, and no contradiction. Never promote an intermediate artifact or self-reported success to completion.
+## Prove and merge the set
 
-## Roll up and retire
+Run repository-profile-selected verification and the full test suite. Require one shared pull request and head SHA, checked acceptance on every leaf, completed successful CI, no changes requested, a clean source tree, healthy integration, one owner, and matching receipts everywhere. Re-run `Resolve` with the pull-request number and `-RequireRecorded true`, then run set-level Closeout health bound to the pull-request head.
 
-Close a parent only when every required child derives Done. Close a milestone or outcome only after descendants and final integrated repository health are clean. Mark acceptance from evidence, post at most one concise verified closeout receipt, and remove only outcome-owned branches, worktrees, processes, caches, and temporary working artifacts.
+When a Project projection is configured, run the Project action with `ensure:false` for every selected issue and the pull request and require `member:true`. It re-checks structured native `gh project item-list` output. Membership is acceptance evidence only and never changes lifecycle state.
 
-Keep active artifacts needed by a remaining child. GitHub and Git history are the durable record. Stop on failed or pending checks, unchecked acceptance, incomplete descendants, unhealthy integration, stale head, unavailable provider truth, or conflicting state.
+Merge the guarded head only with authority. Re-read GitHub after merge, mark acceptance from evidence, close every selected leaf through the shared pull request, and post at most one concise verified closeout receipt per leaf.
+
+## Roll up
+
+Close the root only after every required child derives Done and integrated repository health is clean. Close a milestone only after all included outcomes are Done. Restore canonical local `main`, remove only outcome-owned worktrees and branches, and retain GitHub/Git history as the durable record.

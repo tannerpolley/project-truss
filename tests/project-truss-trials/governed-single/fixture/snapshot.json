@@ -7,7 +7,7 @@
     "title": "Ship one governed change",
     "state": "OPEN",
     "url": "https://github.example/issues/201",
-    "body": "## Outcome\n\nShip one governed change.\n\n## Context or behavioral delta\n\nCurrent behavior lacks the change.\n\n## Scope and non-goals\n\nOne mergeable unit only.\n\n## Acceptance criteria\n\n- [ ] The change is verified.\n\n## Verification basis\n\nBehavior test and pull-request checks.\n\n## Constraints, risks, and authority\n\nNo external mutation in this fixture."
+    "body": "## Parent\n\n#200\n\n## What to build\n\nShip one governed change.\n\n## Acceptance criteria\n\n- [ ] The change is verified.\n\n## Blocked by\n\nNone — can start immediately."
   },
   "assignees": [],
   "children": [],

@@ -47,6 +47,8 @@ def _mutation(handler: str) -> str:
         return "deployment"
     if handler == "command_run_agent_usability_trials":
         return "project"
+    if handler == "command_project_truss":
+        return "external"
     return "none"
 
 

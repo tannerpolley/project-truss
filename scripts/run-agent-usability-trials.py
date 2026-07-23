@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the four Project Truss scenarios against the installed plugin."""
+"""Run the five Project Truss scenarios against the installed plugin."""
 from __future__ import annotations
 
 import argparse
@@ -28,8 +28,8 @@ def installed_plugin_root() -> Path:
         raise RuntimeError("project-truss@personal must be the one enabled Project Truss installation")
     root = Path(str((matches[0].get("source") or {}).get("path", ""))).resolve()
     manifest = json.loads((root / ".codex-plugin" / "plugin.json").read_text(encoding="utf-8"))
-    if (manifest.get("name"), manifest.get("version")) != ("project-truss", "1.0.0"):
-        raise RuntimeError("installed Project Truss identity is not 1.0.0")
+    if (manifest.get("name"), manifest.get("version")) != ("project-truss", "2.0.0"):
+        raise RuntimeError("installed Project Truss identity is not 2.0.0")
     return root
 
 

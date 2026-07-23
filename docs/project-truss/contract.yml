@@ -1,6 +1,6 @@
-version: 1
+version: 2
 public_skill: start
-skills: [start, shape, deliver, close, advanced-user-input]
+skills: [start, shape, resolve, close, advanced-user-input]
 hard_triggers:
   - explicit
   - merge_or_publication
@@ -8,18 +8,27 @@ hard_triggers:
   - multiple_independent_units
   - multi_agent_delegation
   - exceeds_safe_context
-issue_sections:
-  - Outcome
-  - Context or behavioral delta
-  - Scope and non-goals
+root_issue_sections:
+  - Problem Statement
+  - Solution
+  - User Stories
+  - Implementation Decisions
+  - Testing Decisions
+  - Out of Scope
+  - Further Notes
+leaf_issue_sections:
+  - Parent
+  - What to build
   - Acceptance criteria
-  - Verification basis
-  - Constraints, risks, and authority
+  - Blocked by
+advisory_labels:
+  ready_for_agent: agent-shaped
 receipts: [claim, blocker_or_decision, handoff, verified_closeout]
 blockers:
   - authority_required
   - decision_required
   - github_capability_missing
+  - method_capability_missing
   - contract_incomplete
   - dependency_blocked
   - claim_conflict

@@ -19,7 +19,7 @@ from scripts.lib.package_provenance import (
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SKILLS = {"start", "shape", "deliver", "close", "advanced-user-input"}
+SKILLS = {"start", "shape", "resolve", "close", "advanced-user-input"}
 PROMPT = "Use $project-truss:start only for explicit or hard-trigger governed work; ordinary coding stays direct."
 
 
@@ -34,7 +34,7 @@ class RuntimePackageTests(unittest.TestCase):
     def test_source_manifest_is_the_compact_project_truss_surface(self):
         plugin = json.loads((ROOT / ".codex-plugin" / "plugin.json").read_text(encoding="utf-8"))
         self.assertEqual("project-truss", plugin["name"])
-        self.assertEqual("1.0.0", plugin["version"])
+        self.assertEqual("2.0.0", plugin["version"])
         self.assertEqual("Project Truss", plugin["interface"]["displayName"])
         self.assertEqual([PROMPT], plugin["interface"]["defaultPrompt"])
         self.assertEqual(SKILLS, {path.parent.name for path in (ROOT / "skills").glob("*/SKILL.md")})
@@ -50,7 +50,7 @@ class RuntimePackageTests(unittest.TestCase):
             "scripts/lib/project_truss_cli.py",
         }
         self.assertLessEqual(required, paths)
-        self.assertFalse(any(path.startswith("docs/superpowers/") for path in paths))
+        self.assertFalse(any(path.startswith("docs/legacy-workflow/") for path in paths))
         self.assertEqual([], validate_runtime_reads(ROOT, package))
 
     def test_hash_tracks_included_content_and_executable_mode_only(self):
@@ -107,23 +107,26 @@ class RuntimePackageTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             live = root / "live"
-            predecessor = root / "predecessor"
+            unrelated = root / "unrelated"
             cache = root / "cache" / "installed.txt"
             marketplace = root / "marketplace.json"
-            predecessor.mkdir()
+            unrelated.mkdir()
             cache.parent.mkdir()
             cache.write_text("retain\n", encoding="utf-8")
-            marketplace.write_text(json.dumps({"plugins": [{"name": "superpowers-project"}]}), encoding="utf-8")
+            marketplace.write_text(json.dumps({"plugins": [{"name": "unrelated"}]}), encoding="utf-8")
             context = Context(ROOT / "scripts/sync-live.sh", ROOT, "scripts/sync-live.sh", "sync-live.sh", [], plugin_root=ROOT, invocation_cwd=ROOT)
-            result = command_sync_live(context, {"LivePluginRoot": str(live), "PredecessorLiveRoot": str(predecessor), "MarketplacePath": str(marketplace)})
+            result = command_sync_live(context, {"LivePluginRoot": str(live), "MarketplacePath": str(marketplace)})
             self.assertEqual(0, result)
             self.assertEqual(runtime_contract_hash(ROOT), runtime_contract_hash(live))
-            self.assertEqual(["project-truss"], [item["name"] for item in json.loads(marketplace.read_text())["plugins"]])
-            self.assertFalse(predecessor.exists())
+            self.assertEqual(
+                ["unrelated", "project-truss"],
+                [item["name"] for item in json.loads(marketplace.read_text())["plugins"]],
+            )
+            self.assertTrue(unrelated.exists())
             self.assertEqual("retain\n", cache.read_text(encoding="utf-8"))
 
             with self.assertRaisesRegex(ScriptError, "deployment path"):
-                command_sync_live(context, {"LivePluginRoot": str(ROOT), "PredecessorLiveRoot": str(predecessor), "MarketplacePath": str(marketplace)})
+                command_sync_live(context, {"LivePluginRoot": str(ROOT), "MarketplacePath": str(marketplace)})
 
             rollback_live = root / "rollback-live"
             rollback_live.mkdir()
@@ -137,7 +140,7 @@ class RuntimePackageTests(unittest.TestCase):
                 return original_replace(path, target)
 
             with patch.object(Path, "replace", fail_promotion), self.assertRaisesRegex(OSError, "promotion failure"):
-                command_sync_live(context, {"LivePluginRoot": str(rollback_live), "PredecessorLiveRoot": str(predecessor), "MarketplacePath": str(marketplace)})
+                command_sync_live(context, {"LivePluginRoot": str(rollback_live), "MarketplacePath": str(marketplace)})
             self.assertEqual("current\n", marker.read_text(encoding="utf-8"))
 
 

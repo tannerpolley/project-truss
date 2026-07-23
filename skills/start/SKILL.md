@@ -5,21 +5,20 @@ description: Use when Project Truss is explicit or a coding outcome needs merge,
 
 # Project Truss Start
 
-Own one outcome from classification through verified closeout. Apply `docs/project-truss/contract.yml` and load only a matching card from `docs/project-truss/METHODS.md`.
+Own one outcome from classification through verified closeout. Apply `docs/project-truss/contract.yml` and use `docs/project-truss/METHODS.md` to route engineering technique.
 
-## Classify
+## Classify and preflight
 
-Run `scripts/project-truss.sh -Action Plan` with a faithful request object.
+Run `scripts/project-truss.sh -Action Plan` with a faithful request. Direct work stays direct and may use any relevant Matt Pocock engineering skill without creating Truss structure.
 
-- `direct`: return immediately to normal Codex and the relevant upstream Superpowers skill. Create no Project Truss artifact and ask no workflow question.
-- `governed`: continue when Project Truss is explicit or current evidence shows a hard continuity trigger: merge or publication, multiple deliverables, delegation, a milestone or deadline, or work that cannot safely finish in one context.
+Before governed work, verify the repository's Matt setup in `docs/agents/`, the available skill list, and every method required by the current task. Pass `matt_configured`, `required_methods`, and `available_methods` in the request. Stop on `method_capability_missing`; do not pretend a command-only or unavailable skill ran.
 
-Difficulty alone does not make work governed. Keep one outcome; intermediate specs, plans, issues, commits, and pull requests cannot complete it.
+New governed outcomes and material rescope set `new_outcome` or `material_rescope`. They require grilling to shared understanding, using domain modeling when terminology or invariants matter. Resume an unchanged issue from current truth without repeating the interview.
 
 ## Route from current truth
 
-Use `shape` when the smallest GitHub structure is absent or materially wrong. Use `deliver` when a Ready leaf exists or claimed work must continue. Use `close` when implementation or a descendant appears complete.
+- Use `shape` when the native GitHub structure is absent or materially wrong.
+- Use `resolve` when one or more explicitly selected Ready leaves can proceed or a recorded resolution set must continue.
+- Use `close` when a selected set has a pull request or appears complete.
 
-Ask through `advanced-user-input` only for a material missing decision or authority. Otherwise proceed under bounded autonomy and re-enter from GitHub, Git, CI, and current worktrees rather than remembered state.
-
-Stop only for an authority boundary, unresolved material decision, unavailable required capability, contradictory evidence, or failed verification that needs human direction.
+Ask through `advanced-user-input` only for a material decision or authority boundary. Otherwise re-enter from GitHub, Git, CI, canonical evidence, and current worktrees rather than remembered state.

@@ -1,6 +1,8 @@
 # Project Truss Release Policy
 
-Project Truss uses a clean breaking identity. Version 1.0.0 has no compatibility alias for the predecessor namespace or its route model.
+Project Truss 2.0 is a clean breaking release. It has no `deliver` alias and does not retain the v1 six-heading issue parser.
+
+Existing unclaimed v1 issues must be reshaped. An active v1 claim may finish under v1 or be released and restarted under 2.0.
 
 An installable revision is complete only after committed source passes `./scripts/validate.sh`, `./scripts/sync-live.sh --validate`, `codex plugin add project-truss@personal --json`, the current version banner, cleanup, and source-status inspection. A fresh Codex session is required before installed-product claims.
 

@@ -1,37 +1,63 @@
-# Project Truss Runtime Guide
+# Project Truss runtime contract
 
-Project Truss is a lean coordination layer for coding outcomes that need durable continuity. Ordinary work remains direct. Governed work uses GitHub issues, native relationships, pull requests, Git, CI, and current worktrees as its only lifecycle truth.
+Project Truss is a Matt-first coordination layer for coding outcomes that need durable continuity. Ordinary work remains direct. Governed work uses GitHub issues and native relationships, Git, pull requests, CI, and current worktrees as lifecycle truth.
 
-## Activation
+## Entry and stages
 
-Use `$project-truss:start` only when explicitly requested or when work needs merge or publication, multiple deliverables, delegation, a milestone or deadline, or continuity beyond one safe context. Difficulty alone is not a trigger.
+`start` calls `scripts/project-truss.sh -Action Plan` and routes one outcome:
 
-The entry point classifies the request with `scripts/project-truss.sh -Action Plan`, then routes current governed state to shape, deliver, or close. It asks only when a material decision or authority boundary cannot be inferred.
+- `shape` grills when required and publishes Matt root/leaf contracts directly to GitHub;
+- `resolve` claims one explicit singleton or multi-leaf atomic set in one worktree, branch, and pull request;
+- `close` runs shared Standards review, per-ticket Spec review, verification, merge, and roll-up;
+- `advanced-user-input` handles only material decisions or authority.
 
-## Durable shape
+Before governed work, Start verifies the repository's Matt setup and required skill capabilities. Missing capability is `method_capability_missing`. Direct work is not blocked.
 
-- one unit: leaf issue plus pull request;
-- several units: parent plus leaf sub-issues and necessary dependencies;
-- coordinated release or deadline: milestone plus parent and leaves.
+## Issue contracts
 
-Every leaf uses the six headings in `contract.yml`. State is derived as Ready, Claimed, In review, Blocked, or Done. Ready additionally requires all temporary Superpowers shaping inputs to be retired. There is no separate task store.
+Root specifications use:
 
-## Skills
+1. Problem Statement
+2. Solution
+3. User Stories
+4. Implementation Decisions
+5. Testing Decisions
+6. Out of Scope
+7. Further Notes
 
-- `start`: direct/governed classification and one-outcome ownership;
-- `shape`: adaptive native GitHub structure;
-- `deliver`: Ready selection, single claim, feedback, isolation, and upstream execution;
-- `close`: verification, merge, roll-up, and artifact retirement;
-- `advanced-user-input`: material questions and authority boundaries.
+Leaf tickets use:
 
-Project Truss delegates coding mechanics to upstream Superpowers and loads method cards from `METHODS.md` only when their triggers match.
+1. Parent
+2. What to build
+3. Acceptance criteria
+4. Blocked by
 
-## Working artifacts
+The former six-heading issue format is not accepted in 2.0.
 
-Superpowers specs and plans under `docs/superpowers/specs/` and `docs/superpowers/plans/` are temporary inputs used only to shape governed work. Shape synthesizes rather than copies them into the smallest native GitHub structure, then re-reads every issue and relationship. It verifies preservation of the outcome, scope and non-scope, architectural or scientific invariants, constraints and tolerances, dependencies, acceptance criteria, and required validation evidence.
+## Lifecycle truth
 
-If issue creation or verification fails, retain the files while correcting GitHub. Once verification succeeds, GitHub is authoritative: promote lasting insight to the target repository's canonical documentation and delete the duplicate files immediately. Live Status reports exact `unretired_artifacts`, exposes no Ready frontier while the list is non-empty, and blocks claim or implementation.
+Each leaf derives Ready, Claimed, In review, Blocked, or Done from current contracts, dependencies, one assignee, one closing pull request, reviews, CI, and closure evidence. Labels, milestones, and Project fields do not derive state.
 
-Deliver records the full pre-branch commit in the claim receipt as `ImplementationBase`. Base-bound Status reports `implementation_artifact_history` when any implementation commit touched a working-artifact path, even after deletion. Both lists must be empty before implementation, before every implementation commit, and before handoff; a contaminated branch must be recreated from its verified base. Closeout repeats the same base-bound checks as defense-in-depth. This prevents temporary files from entering implementation history and aggregate change counts rather than merely deleting them from the final tree.
+The full implementation-base SHA remains the shared diff boundary and stale-head guard. There is no provider-specific planning-artifact scan or second persistent state store.
 
-This plugin's `docs/project-truss/` directory is different: it contains the durable runtime contract and product guidance shipped by Project Truss itself. It complements Superpowers rather than replacing it, and it is not the required destination for documentation in other repositories.
+## Resolution sets
+
+Resolve defaults to the addressed leaf. A set of several or all leaves requires explicit issue selection. Every member must be executable, have no competing claim or PR, and have no open blocker outside the selected set. Dependencies within the set become atomic pull-request constraints.
+
+Every member records one identical canonical receipt: sorted issues, owner, implementation base, branch, worktree, and optional PR. Missing or conflicting receipts stop as `claim_conflict` or `state_contradiction`. GitHub has no multi-issue transaction, so Truss uses full-set preflight and post-write verification and stops on any partial mutation.
+
+## Descriptive labels and Projects
+
+Shape preserves existing labels and may add explicitly requested descriptive labels. The advisory Matt `ready-for-agent` role maps to `agent-shaped`. Lifecycle labels are not created or interpreted as state.
+
+An optional GitHub Project projection requires an explicit owner and project number. Truss uses native `gh project view`, `item-list`, and `item-add`; the `gh projects` extension is optional. It adds missing root, leaf, and PR memberships idempotently, verifies structured output without silent truncation, and records one canonical Project URL in the root's Further Notes. It never creates a Project, changes fields, or uses Project metadata as lifecycle input.
+
+The public Project action executes and verifies one membership at a time:
+
+```bash
+scripts/project-truss.sh -Action Project -ProjectionJson '{"owner":"OWNER","project":7,"url":"ISSUE_OR_PR_URL","ensure":true}'
+```
+
+## Closeout
+
+Close reviews Standards once over the shared diff and Spec once per selected leaf. It requires matching receipts, checked acceptance, one shared PR/head, successful completed CI, clear review state, healthy integration, and clean source state. After merge, every selected leaf must derive Done before the root or milestone closes.

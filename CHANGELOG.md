@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 2.0.0 - 2026-07-23
+
+- Replaced the provider-specific implementation workflow with Matt-first shaping, TDD, diagnosis, research, domain modeling, prototyping, conflict resolution, and two-axis review.
+- Replaced `deliver` with `resolve` and added explicit singleton and multi-leaf atomic resolution sets.
+- Adopted Matt root-spec and leaf-ticket issue contracts with mandatory grilling for new governed outcomes and material rescope.
+- Added descriptive-label policy and optional native GitHub Projects projection without making either lifecycle authority.
+- Removed provider-specific planning-artifact state and retained the implementation base as the Git ancestry and review boundary.
+
 ## 1.0.0 - 2026-07-14
 
 - Renamed the product and plugin identity to Project Truss.

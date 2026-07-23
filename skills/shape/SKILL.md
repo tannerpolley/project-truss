@@ -1,39 +1,40 @@
 ---
 name: shape
-description: Use when a governed outcome needs the smallest executable native GitHub issue, dependency, parent, or milestone structure.
+description: Use when a governed outcome needs the smallest executable native GitHub issue, dependency, parent, milestone, label, or optional Project membership structure.
 ---
 
 # Project Truss Shape
 
-Apply `docs/project-truss/contract.yml`. Load a relevant card from `docs/project-truss/METHODS.md` only when its Trigger matches current evidence.
+Apply `docs/project-truss/contract.yml`. New outcomes and material rescope require grilling before publication. Once shared understanding exists, publish directly to GitHub; do not create a local planning gate or lifecycle mirror.
 
-## Choose the smallest shape
+## Publish Matt contracts
 
-Run `scripts/project-truss.sh -Action Plan` and show the dry result before any GitHub write.
+Run `scripts/project-truss.sh -Action Plan` with verified Matt capabilities before writing.
 
-- one mergeable unit: one leaf issue plus its pull request;
-- several independently mergeable units: one parent with leaf sub-issues and only necessary dependencies;
-- coordinated release, deadline, or cross-issue health target: add one milestone.
+- A root spec uses `Problem Statement`, `Solution`, `User Stories`, `Implementation Decisions`, `Testing Decisions`, `Out of Scope`, and `Further Notes`.
+- A leaf ticket uses `Parent`, `What to build`, `Acceptance criteria`, and `Blocked by`.
+- One mergeable unit needs one leaf and its pull request.
+- Independent units need one root with native sub-issues and only real blocked-by edges.
+- Add a milestone only for a coordinated release, deadline, or cross-issue health target.
 
-Every executable leaf uses the six contract headings exactly. Add repository-profile-specific assumptions, invariants, tolerances, or domain ownership only when relevant.
+Use native `gh issue create --parent`, `--blocked-by`, and `gh issue edit` relationship flags when available. Re-read every issue, relationship, milestone, body, and label after mutation. GitHub becomes authoritative immediately after verified publication.
 
-Do not create lifecycle labels, GitHub Projects, wrapper issues, title hierarchy markers, local issue files, or another durable tracker.
+## Labels
 
-## Write with authority
+Preserve existing labels. Add only caller-requested descriptive or taxonomy labels such as `bug`, `area:cli`, or `priority:high`. The Matt `ready-for-agent` role maps to `agent-shaped`, which is advisory only.
 
-Use explicit scope that already authorizes issue creation or ask once through `advanced-user-input`. Create issues with `gh issue create`. Connect native relationships with the current GitHub API:
+Never create or interpret `ready`, `claimed`, `in-review`, `blocked`, or `done` labels as lifecycle state. Readiness is derived from contracts, dependencies, claims, pull requests, CI, and provider truth.
+
+## Optional GitHub Project projection
+
+Only configure projection from an explicit owner and project number. Use native GitHub CLI commands; the `gh projects` extension is optional:
 
 ```bash
-gh api --method POST "repos/$repo/issues/$parent/sub_issues" --header "X-GitHub-Api-Version: 2026-03-10" -F sub_issue_id="$child_id"
-gh api --method POST "repos/$repo/issues/$blocked/dependencies/blocked_by" --header "X-GitHub-Api-Version: 2026-03-10" -F issue_id="$blocker_id"
+gh project view PROJECT --owner OWNER --format json
+gh project item-list PROJECT --owner OWNER --format json --limit 1000
+gh project item-add PROJECT --owner OWNER --url ISSUE_URL --format json
 ```
 
-Create a milestone only for the full release shape. After every mutation, re-read the authoritative issue, sub-issue, dependency, and milestone state; report exact URLs. Stop on missing relationship support rather than inventing a compatibility layer.
+For each root or leaf URL, call `scripts/project-truss.sh -Action Project -ProjectionJson '{"owner":"OWNER","project":PROJECT,"url":"URL","ensure":true}'`. It pre-reads membership, adds only a missing item, re-reads, and fails on truncated output. Record exactly one returned `GitHub Project projection: CANONICAL_URL` line under the root's `Further Notes`. Do not create Projects, change fields or Status, remove items, or use Project metadata in lifecycle derivation.
 
-## Retire shaping inputs
-
-Superpowers specs and plans under `docs/superpowers/specs/` and `docs/superpowers/plans/` are temporary shaping inputs. Synthesize them into the smallest issue shape; do not paste them verbatim or create a local duplicate of the issue.
-
-After creation, re-read every issue and native relationship. Verify that GitHub preserves the outcome, context, scope and non-goals, architectural or scientific invariants, constraints and tolerances, dependencies, acceptance criteria, and required validation evidence. If creation or verification fails, retain the files while correcting GitHub. Do not delete them early.
-
-Once verification succeeds, GitHub is authoritative. Promote lasting insight to the repository's canonical documentation, delete the duplicate working files immediately, then re-run live `Status`. Do not hand off a Ready leaf unless `unretired_artifacts` is empty; retirement must precede claim, delivery, branch or worktree creation, and implementation.
+Missing native commands, access, OAuth scope, complete structured output, or verified membership produces `github_capability_missing` with safe remediation. Never run `gh auth refresh -h github.com -s project` without separate user approval.

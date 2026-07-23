@@ -20,7 +20,7 @@ from skill_slimming import validate_skill_slimming
 from truss_policy import load_contract
 
 
-SKILLS = {"start", "shape", "deliver", "close", "advanced-user-input"}
+SKILLS = {"start", "shape", "resolve", "close", "advanced-user-input"}
 OUTCOME_FIELDS = [
     "Intent", "Current Behavior", "Expected Outcome", "Target Output", "Owner", "Interface",
     "Cutover", "Replaced Path", "Evidence", "Acceptance Proof", "Stop Criteria", "Avoid", "Risk",
@@ -177,17 +177,34 @@ def _text_files(root: Path) -> list[Path]:
 
 def _validate_source(root: Path) -> None:
     manifest = json.loads(read_text(root / ".codex-plugin" / "plugin.json"))
-    if manifest.get("name") != "project-truss" or manifest.get("version") != "1.0.0":
-        raise ScriptError("manifest identity must be project-truss 1.0.0")
+    if manifest.get("name") != "project-truss" or manifest.get("version") != "2.0.0":
+        raise ScriptError("manifest identity must be project-truss 2.0.0")
     if set(active_skill_names(root)) != SKILLS:
         raise ScriptError("active skill inventory must be exactly " + ", ".join(sorted(SKILLS)))
     if len(read_text(root / "README.md").splitlines()) > 150:
         raise ScriptError("README.md exceeds 150 lines")
-    template = yaml.safe_load(read_text(root / ".github" / "ISSUE_TEMPLATE" / "outcome.yml")) or {}
-    labels = [item.get("attributes", {}).get("label") for item in template.get("body", [])]
-    expected = ["Outcome", "Context or behavioral delta", "Scope and non-goals", "Acceptance criteria", "Verification basis", "Constraints, risks, and authority"]
-    if labels != expected or template.get("labels") != []:
-        raise ScriptError("outcome issue form does not match the six-section contract")
+    forms = {
+        "outcome.yml": [
+            "Problem Statement",
+            "Solution",
+            "User Stories",
+            "Implementation Decisions",
+            "Testing Decisions",
+            "Out of Scope",
+            "Further Notes",
+        ],
+        "leaf.yml": ["Parent", "What to build", "Acceptance criteria", "Blocked by"],
+    }
+    for filename, expected in forms.items():
+        template = yaml.safe_load(
+            read_text(root / ".github" / "ISSUE_TEMPLATE" / filename)
+        ) or {}
+        labels = [
+            item.get("attributes", {}).get("label")
+            for item in template.get("body", [])
+        ]
+        if labels != expected or template.get("labels") != []:
+            raise ScriptError(f"{filename} does not match the Project Truss 2.0 contract")
     load_contract(root / "docs" / "project-truss" / "contract.yml")
     load_command_catalog(root)
     package = load_runtime_package(root)
@@ -199,6 +216,7 @@ def _validate_source(root: Path) -> None:
 def _validate_active_text(root: Path) -> None:
     stale = (
         "$superpowers" + "-project:",
+        "Super" + "powers",
         "Manual" + " Mode",
         "Auto" + " Mode",
         "Looping" + " Mode",
