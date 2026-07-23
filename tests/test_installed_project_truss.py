@@ -15,14 +15,20 @@ from scripts.lib.package_provenance import runtime_contract_hash
 
 ROOT = Path(__file__).resolve().parents[1]
 PLUGIN_ROOT = Path(os.environ.get("PROJECT_TRUSS_INSTALLED_ROOT", ROOT)).resolve()
-SCENARIOS = {"direct", "governed-single", "governed-multi", "premature-closeout"}
-SKILLS = {"start", "shape", "deliver", "close", "advanced-user-input"}
+SCENARIOS = {
+    "direct",
+    "governed-single",
+    "governed-multi",
+    "missing-method-capability",
+    "premature-closeout",
+}
+SKILLS = {"start", "shape", "resolve", "close", "advanced-user-input"}
 
 
 class InstalledProjectTrussTests(unittest.TestCase):
-    def test_installed_surface_has_one_front_door_and_four_scenarios(self):
+    def test_installed_surface_has_one_front_door_and_five_scenarios(self):
         manifest = json.loads((PLUGIN_ROOT / ".codex-plugin" / "plugin.json").read_text(encoding="utf-8"))
-        self.assertEqual(("project-truss", "1.0.0"), (manifest["name"], manifest["version"]))
+        self.assertEqual(("project-truss", "2.0.0"), (manifest["name"], manifest["version"]))
         self.assertEqual(
             ["Use $project-truss:start only for explicit or hard-trigger governed work; ordinary coding stays direct."],
             manifest["interface"]["defaultPrompt"],
@@ -34,7 +40,7 @@ class InstalledProjectTrussTests(unittest.TestCase):
             self.assertTrue((trial_root / scenario / "prompt.md").is_file())
             self.assertTrue((trial_root / scenario / "oracle.json").is_file())
 
-    def test_canonical_trial_set_is_direct_single_multi_blocked(self):
+    def test_canonical_trial_set_covers_direct_resolution_capability_and_closeout(self):
         receipts = []
         with tempfile.TemporaryDirectory() as directory:
             trial_root = Path(directory)
@@ -45,10 +51,24 @@ class InstalledProjectTrussTests(unittest.TestCase):
                 shutil.copytree(scenario_root / "fixture", project)
                 oracle_path = ROOT / "tests" / "project-truss-trials" / scenario / "oracle.json"
                 oracle = json.loads(oracle_path.read_text(encoding="utf-8"))
-                expected = "blocked" if scenario == "premature-closeout" else "pass"
+                expected = (
+                    "blocked"
+                    if scenario in {"missing-method-capability", "premature-closeout"}
+                    else "pass"
+                )
                 source_urls = []
                 if scenario == "direct":
                     (project / "result.txt").write_text("complete\n", encoding="utf-8")
+                elif scenario == "missing-method-capability":
+                    result_payload = {
+                        "lane": "governed",
+                        "blockers": ["method_capability_missing"],
+                        "source_urls": [],
+                    }
+                    (project / "result.json").write_text(
+                        json.dumps(result_payload) + "\n",
+                        encoding="utf-8",
+                    )
                 else:
                     source_urls = json.loads((project / "snapshot.json").read_text(encoding="utf-8"))["source_urls"]
                     result_payload = {"source_urls": source_urls}
@@ -87,7 +107,10 @@ class InstalledProjectTrussTests(unittest.TestCase):
                     "external_mutations": 0,
                     "tool_calls": [] if scenario == "direct" else ["command_execution"],
                     "source_urls": source_urls,
-                    "blocker": "state_contradiction" if scenario == "premature-closeout" else None,
+                    "blocker": {
+                        "premature-closeout": "state_contradiction",
+                        "missing-method-capability": "method_capability_missing",
+                    }.get(scenario),
                     "repository_evidence": evidence,
                     "worker_claim": {"summary": scenario},
                     "verifier_decision": expected,

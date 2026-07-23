@@ -1,77 +1,33 @@
-# Project Truss Method Cards
+# Project Truss Matt Method Routing
 
-Load one card only when its trigger matches current evidence. Cards improve reasoning; they do not own lifecycle state or form a required sequence.
+Project Truss owns GitHub-native coordination. Matt Pocock engineering skills own shaping and implementation technique. Route only when current evidence matches a method; availability is a capability, not something to assume.
 
-## Adversarial clarification
+## Required shaping method
 
-**Trigger:** A consequential request is underspecified, contradictory, or hides a product choice.
+New governed outcomes and material rescope require `grilling` to reach shared understanding. Add `domain-modeling` when language, invariants, ownership, or state transitions are unclear.
 
-**Questions:** What observable outcome matters? Which assumption would most change the solution? What must not happen? Who owns the unresolved tradeoff?
+Resume an unchanged published issue without repeating grilling.
 
-**Stop condition:** One implementable interpretation remains, or a genuinely material decision must go to the user.
+## Implementation methods
 
-**Output:** A compact outcome statement, explicit non-goals, and the smallest unresolved decision.
+| Trigger | Method | Durable result |
+|---|---|---|
+| Stable behavior can be specified at an approved public seam | `tdd` | Behavior-level regression tests |
+| A defect or failed check lacks a demonstrated cause | `diagnosing-bugs` | Reproduction and causal repair |
+| A niche claim needs primary-source evidence | `research` | Canonical research note when useful |
+| Domain language or invariants are ambiguous | `domain-modeling` | `CONTEXT.md` or an ADR |
+| A design question needs executable evidence | `prototype` | Throwaway branch plus linked verdict |
+| Git reports an active merge or rebase conflict | `resolving-merge-conflicts` | Verified conflict resolution |
+| A shared diff is ready for handoff | `code-review` | Standards report plus per-ticket Spec reports |
 
-## Domain language and invariants
+Command-oriented Matt workflows such as setup, grilling-with-docs, spec publication, ticket publication, and implement may be unavailable for model invocation. Truss adopts their contracts and outputs; it must not claim to have invoked a method that is absent.
 
-**Trigger:** Ambiguous terminology or domain rules could let a locally plausible implementation be globally wrong.
+## Capability failure
 
-**Questions:** Which words have precise meanings here? What quantities, states, units, conservation rules, or business constraints must remain true? Where is the model valid?
+Before governed work, `start` verifies repository setup and required methods against the actual available skill list. A missing package, `docs/agents/` configuration, or required method produces `method_capability_missing`.
 
-**Stop condition:** Terms map to repository concepts and acceptance can be expressed as domain invariants.
+Direct work remains available. Governed work stops until the method is installed, configured, or the outcome is explicitly reshaped so that method is no longer required.
 
-**Output:** A short glossary plus measurable invariants and validity bounds.
+## Canonical evidence
 
-## Codebase wayfinding
-
-**Trigger:** The change crosses unfamiliar code or ownership is unclear.
-
-**Questions:** Where does input enter? Which module owns the decision? What downstream consumers observe it? Which tests protect the behavior family?
-
-**Stop condition:** One narrow edit path and its verification surface are identified.
-
-**Output:** A source-to-consumer map with likely edit points and risks.
-
-## Causal diagnosis
-
-**Trigger:** A defect, failed check, or inconsistent state lacks a demonstrated cause.
-
-**Questions:** What is the earliest divergence from expected behavior? Which observation distinguishes competing causes? Can the failure be reproduced at the owning boundary?
-
-**Stop condition:** Evidence selects one cause and predicts a focused fix.
-
-**Output:** Reproduction, causal chain, rejected alternatives, and a minimal repair hypothesis.
-
-## Architecture pressure test
-
-**Trigger:** A proposed abstraction, service, workflow layer, or persistent state could increase long-term coordination cost.
-
-**Questions:** Which capability owns this? Can current native state answer it? How many writers and synchronization edges appear? What deletion becomes possible?
-
-**Stop condition:** The proposal has one owner, justified boundaries, and less total complexity than the alternatives.
-
-**Output:** Keep/simplify/delete decision with coupling and migration consequences.
-
-## Ruthless triage
-
-**Trigger:** Scope, tests, artifacts, or requested features exceed the evidence needed for the outcome.
-
-**Questions:** Which item changes user-visible utility or protects a real failure? What is duplicated, speculative, generated, or historical? What can be deferred without weakening truth?
-
-**Stop condition:** Every retained item maps to outcome value, authority, ordering, evidence, or safety.
-
-**Output:** A ranked keep/delete/defer list with one-line justification.
-
-## Independently verifiable decomposition
-
-**Trigger:** Several deliverables can progress separately but must converge into one outcome.
-
-**Questions:** Can each unit merge and prove value independently? What native dependency orders them? Which integration health belongs only at the parent or milestone?
-
-**Stop condition:** Leaves are independently executable, dependencies are minimal, and parent closeout is measurable.
-
-**Output:** Leaf outcomes, dependency edges, ownership boundaries, and roll-up acceptance.
-
-## Influence and attribution
-
-These independently written method cards were informed by engineering patterns in mattpocock/skills (MIT), audited at commit e9fcdf95b402d360f90f1db8d776d5dd450f9234. Project Truss does not copy or require that repository at runtime.
+Keep `CONTEXT.md`, ADRs, and useful research notes in repository-defined locations. Keep prototypes on throwaway branches with a linked verdict. GitHub issues hold the root spec and leaf tickets. Do not create local lifecycle mirrors or planning artifacts.

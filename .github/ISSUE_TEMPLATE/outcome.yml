@@ -1,48 +1,55 @@
 name: Governed outcome
-description: Propose one executable Project Truss outcome.
+description: Publish one Matt-shaped Project Truss root specification.
 title: ""
 labels: []
 body:
   - type: textarea
-    id: outcome
+    id: problem
     attributes:
-      label: Outcome
-      description: State the observable result, not the intermediate artifact.
+      label: Problem Statement
+      description: Describe the problem from the user's perspective.
     validations:
       required: true
   - type: textarea
-    id: context
+    id: solution
     attributes:
-      label: Context or behavioral delta
-      description: Describe current behavior and the smallest intended change.
+      label: Solution
+      description: Describe the observable solution from the user's perspective.
     validations:
       required: true
   - type: textarea
-    id: scope
+    id: stories
     attributes:
-      label: Scope and non-goals
-      description: Bound included work and explicitly excluded work.
+      label: User Stories
+      description: Use a numbered list in “As an actor, I want…, so that…” form.
+      value: "1. As a "
     validations:
       required: true
   - type: textarea
-    id: acceptance
+    id: implementation
     attributes:
-      label: Acceptance criteria
-      description: Use checkboxes for observable, independently verifiable criteria.
-      value: "- [ ] "
+      label: Implementation Decisions
+      description: Record durable interfaces, architecture, and technical decisions.
     validations:
       required: true
   - type: textarea
-    id: verification
+    id: testing
     attributes:
-      label: Verification basis
-      description: Name the evidence and repository-profile checks that will prove the outcome.
+      label: Testing Decisions
+      description: Record approved public test seams and verification policy.
     validations:
       required: true
   - type: textarea
-    id: constraints
+    id: out_of_scope
     attributes:
-      label: Constraints, risks, and authority
-      description: Record material boundaries, risks, and external-action authority.
+      label: Out of Scope
+      description: Name explicitly excluded behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Further Notes
+      description: Record constraints, authority, and optional Project projection.
     validations:
       required: true

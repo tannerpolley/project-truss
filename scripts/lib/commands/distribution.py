@@ -21,7 +21,6 @@ except ImportError:
 
 
 PLUGIN_NAME = "project-truss"
-PREDECESSOR_NAME = "superpowers" + "-project"
 
 
 def validate_dependency_pins(path: Path) -> list[str]:
@@ -192,7 +191,6 @@ def command_sync_live(ctx: Context, args: dict[str, Any]) -> int:
     home = Path.home()
     live_root = _deployment_root(str(arg_value(args, "LivePluginRoot", default=os.environ.get("PROJECT_TRUSS_LIVE_PLUGIN_ROOT", str(home / ".codex" / "plugins" / PLUGIN_NAME)))), root, "live plugin")
     marketplace = Path(str(arg_value(args, "MarketplacePath", default=str(home / ".agents" / "plugins" / "marketplace.json")))).expanduser()
-    predecessor_live = _deployment_root(str(arg_value(args, "PredecessorLiveRoot", default=str(home / ".codex" / "plugins" / PREDECESSOR_NAME))), root, "predecessor plugin")
     if has_switch(args, "Validate", "validate"):
         result = subprocess.run(["bash", str(root / "scripts" / "validate.sh")], cwd=root, text=True)
         if result.returncode != 0:
@@ -204,11 +202,12 @@ def command_sync_live(ctx: Context, args: dict[str, Any]) -> int:
         raise ScriptError("live install differs from the runtime package manifest")
     marketplace.parent.mkdir(parents=True, exist_ok=True)
     data = json.loads(read_text(marketplace)) if marketplace.is_file() else {"name": "personal", "interface": {"displayName": "Personal"}, "plugins": []}
-    data["plugins"] = [plugin for plugin in data.get("plugins", []) if plugin.get("name") not in {PLUGIN_NAME, PREDECESSOR_NAME, "milestones", "project"}]
+    data["plugins"] = [
+        plugin for plugin in data.get("plugins", [])
+        if plugin.get("name") != PLUGIN_NAME
+    ]
     data["plugins"].append({"name": PLUGIN_NAME, "source": {"source": "local", "path": f"./.codex/plugins/{PLUGIN_NAME}"}, "policy": {"installation": "AVAILABLE", "authentication": "ON_INSTALL"}, "category": "Productivity"})
     write_text(marketplace, json.dumps(data, indent=2) + "\n")
-    if predecessor_live != live_root and predecessor_live.is_dir():
-        shutil.rmtree(predecessor_live)
     return emit({
         "ok": True,
         "source": str(root),

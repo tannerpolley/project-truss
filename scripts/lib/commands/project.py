@@ -1,7 +1,6 @@
 """Project Truss lifecycle and workspace handlers."""
 from __future__ import annotations
 
-from pathlib import Path
 import re
 import subprocess
 from typing import Any
@@ -9,52 +8,50 @@ from typing import Any
 try:
     from ..command_support import Context, ScriptError, arg_value, emit, project_root_for, read_json_arg, resolve_under
     from ..truss_github import GitHubClient, load_fixture
-    from ..truss_policy import BLOCKERS, FinalHealth, WorkRequest, closeout_findings, derive_digest, load_contract, plan_work
+    from ..truss_policy import (
+        FinalHealth,
+        ResolutionReceipt,
+        WorkRequest,
+        close_resolution_findings,
+        closeout_findings,
+        derive_digest,
+        load_contract,
+        plan_resolution,
+        plan_work,
+    )
     from ..workspace_isolation import resolve_workspace_isolation
 except ImportError:
     from command_support import Context, ScriptError, arg_value, emit, project_root_for, read_json_arg, resolve_under
     from truss_github import GitHubClient, load_fixture
-    from truss_policy import BLOCKERS, FinalHealth, WorkRequest, closeout_findings, derive_digest, load_contract, plan_work
+    from truss_policy import (
+        FinalHealth,
+        ResolutionReceipt,
+        WorkRequest,
+        close_resolution_findings,
+        closeout_findings,
+        derive_digest,
+        load_contract,
+        plan_resolution,
+        plan_work,
+    )
     from workspace_isolation import resolve_workspace_isolation
 
 
-_SUPERPOWERS_WORKING_DIRS = ("docs/superpowers/specs", "docs/superpowers/plans")
-
-
-def _unretired_working_artifacts(root: Path) -> tuple[str, ...]:
-    artifacts = []
-    for relative in _SUPERPOWERS_WORKING_DIRS:
-        directory = root / relative
-        if directory.is_symlink():
-            artifacts.append(relative)
-        elif directory.is_dir():
-            artifacts.extend(path.relative_to(root).as_posix() for path in directory.rglob("*") if path.is_file() or path.is_symlink())
-        elif directory.exists():
-            artifacts.append(relative)
-    return tuple(sorted(artifacts))
-
-
-def _implementation_artifact_history(root: Path, base: str) -> tuple[str, ...]:
-    if not base:
-        return ()
+def _validate_implementation_base(root, base: str) -> None:
     if re.fullmatch(r"[0-9a-fA-F]{40}|[0-9a-fA-F]{64}", base) is None:
         raise ScriptError("ImplementationBase must be a full Git commit hash")
     result = subprocess.run(
-        ["git", "log", "--format=", "--name-only", f"{base}..HEAD", "--", *_SUPERPOWERS_WORKING_DIRS],
+        ["git", "merge-base", "--is-ancestor", base, "HEAD"],
         cwd=root,
         text=True,
         capture_output=True,
         timeout=15,
     )
+    if result.returncode == 1:
+        raise ScriptError("ImplementationBase is not an ancestor of the current HEAD")
     if result.returncode != 0:
-        raise ScriptError(f"could not inspect implementation artifact history: {result.stderr.strip()}")
-    return tuple(sorted({line.strip() for line in result.stdout.splitlines() if line.strip()}))
-
-
-def _with_blocker(blockers: list[str], added: str) -> list[str]:
-    selected = {*blockers, added}
-    trailing = [value for value in blockers if value not in BLOCKERS]
-    return [value for value in BLOCKERS if value in selected] + trailing
+        detail = result.stderr.strip() or "git merge-base failed"
+        raise ScriptError(f"could not validate ImplementationBase: {detail}")
 
 
 def command_workspace_isolation(ctx: Context, args: dict[str, Any]) -> int:
@@ -83,6 +80,57 @@ def command_project_truss(ctx: Context, args: dict[str, Any]) -> int:
         issue = int(issue_value)
     except (TypeError, ValueError) as exc:
         raise ScriptError("Issue must be a positive integer") from exc
+    if action == "Resolve":
+        resolution, _ = read_json_arg(root, args, "ResolutionJson", "ResolutionPath")
+        if not isinstance(resolution, dict):
+            raise ValueError("resolution must be a JSON object")
+        values = dict(resolution)
+        values.setdefault("issues", [issue])
+        receipt = ResolutionReceipt.from_mapping(values)
+        _validate_implementation_base(root, receipt.implementation_base)
+        require_recorded_value = str(arg_value(args, "RequireRecorded", default="false")).casefold()
+        if require_recorded_value not in {"true", "false"}:
+            raise ScriptError("RequireRecorded must be true or false")
+        github = GitHubClient()
+        snapshots = [github.snapshot(repository, number) for number in receipt.issues]
+        result = plan_resolution(
+            snapshots,
+            receipt,
+            require_recorded=require_recorded_value == "true",
+        )
+        return emit(
+            {"ok": result.eligible, "action": action, "source": "live", **result.to_dict()},
+            0 if result.eligible else 1,
+        )
+    if action == "Closeout" and (
+        arg_value(args, "ResolutionJson") or arg_value(args, "ResolutionPath")
+    ):
+        resolution, _ = read_json_arg(root, args, "ResolutionJson", "ResolutionPath")
+        if not isinstance(resolution, dict):
+            raise ValueError("resolution must be a JSON object")
+        values = dict(resolution)
+        values.setdefault("issues", [issue])
+        receipt = ResolutionReceipt.from_mapping(values)
+        supplied_base = str(arg_value(args, "ImplementationBase", default=""))
+        if supplied_base and supplied_base != receipt.implementation_base:
+            raise ScriptError("ImplementationBase conflicts with the resolution receipt")
+        _validate_implementation_base(root, receipt.implementation_base)
+        health, _ = read_json_arg(root, args, "HealthJson", "HealthPath")
+        final_health = FinalHealth.from_mapping(health)
+        github = GitHubClient()
+        snapshots = [github.snapshot(repository, number) for number in receipt.issues]
+        findings = close_resolution_findings(snapshots, receipt, final_health)
+        return emit(
+            {
+                "ok": not findings,
+                "action": action,
+                "source": "live",
+                "issues": list(receipt.issues),
+                "findings": list(findings),
+                "receipt": receipt.to_dict(),
+            },
+            0 if not findings else 1,
+        )
     snapshot_arg = arg_value(args, "SnapshotPath")
     if action == "Status":
         snapshot = load_fixture(resolve_under(root, str(snapshot_arg), "SnapshotPath")) if snapshot_arg else GitHubClient().snapshot(repository, issue)
@@ -92,29 +140,9 @@ def command_project_truss(ctx: Context, args: dict[str, Any]) -> int:
         )
         if code_leaf_started and not implementation_base:
             raise ScriptError("ImplementationBase is required after claim or implementation starts")
+        if implementation_base:
+            _validate_implementation_base(root, implementation_base)
         payload = {"ok": True, "action": action, **derive_digest(snapshot).to_dict()}
-        artifacts = _unretired_working_artifacts(root)
-        history = _implementation_artifact_history(root, implementation_base)
-        payload["unretired_artifacts"] = list(artifacts)
-        payload["implementation_artifact_history"] = list(history)
-        if artifacts or history:
-            payload["ready_frontier"] = []
-            payload["blockers_or_decisions"] = _with_blocker(payload["blockers_or_decisions"], "integration_unhealthy")
-            if not snapshot.authoritative:
-                payload["next_safe_action"] = (
-                    "Re-read live GitHub and verify the issue contract before retiring any listed "
-                    "Superpowers working artifact."
-                )
-            elif history:
-                payload["next_safe_action"] = (
-                    "Recreate the implementation branch from its verified base without Superpowers "
-                    "working-artifact commits."
-                )
-            else:
-                payload["next_safe_action"] = (
-                    "Verify the GitHub issue contract, then retire the listed Superpowers working artifacts "
-                    "before claim or implementation."
-                )
         return emit(payload)
     if action == "Closeout":
         if snapshot_arg:
@@ -123,27 +151,19 @@ def command_project_truss(ctx: Context, args: dict[str, Any]) -> int:
         implementation_base = str(arg_value(args, "ImplementationBase", default=""))
         if not snapshot.children and not implementation_base:
             raise ScriptError("ImplementationBase is required for code-leaf Closeout")
+        if implementation_base:
+            _validate_implementation_base(root, implementation_base)
         health, _ = read_json_arg(root, args, "HealthJson", "HealthPath")
         final_health = FinalHealth.from_mapping(health)
-        artifacts = _unretired_working_artifacts(root)
-        history = _implementation_artifact_history(root, implementation_base)
-        effective_health = FinalHealth(
-            final_health.verification_passed,
-            final_health.integration_healthy and not artifacts and not history,
-            final_health.source_clean,
-            final_health.head_sha,
-        )
-        findings = closeout_findings(snapshot, effective_health)
+        findings = closeout_findings(snapshot, final_health)
         payload = {
             "ok": not findings,
             "action": action,
             "source": "live",
             "findings": list(findings),
-            "unretired_artifacts": list(artifacts),
-            "implementation_artifact_history": list(history),
         }
         return emit(payload, 0 if not findings else 1)
-    raise ScriptError("Action must be Plan, Status, or Closeout")
+    raise ScriptError("Action must be Plan, Resolve, Status, or Closeout")
 
 
 HANDLERS = {

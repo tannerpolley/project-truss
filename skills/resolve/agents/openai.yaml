@@ -1,0 +1,5 @@
+interface:
+  capabilities: [filesystem.read, filesystem.write, shell, git, github, native.user-input]
+  display_name: "Resolve"
+  short_description: "Resolve one explicitly selected Ready leaf or atomic set."
+  default_prompt: "Use $project-truss:resolve to claim and execute an explicit Ready resolution set through Matt-first engineering methods."

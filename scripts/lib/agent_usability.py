@@ -1,4 +1,4 @@
-"""Validate the four fresh-session Project Truss installed-product receipts."""
+"""Validate the five fresh-session Project Truss installed-product receipts."""
 from __future__ import annotations
 
 import hashlib
@@ -17,7 +17,13 @@ class TrialReceiptError(ValueError):
     pass
 
 
-SCENARIOS = {"direct", "governed-single", "governed-multi", "premature-closeout"}
+SCENARIOS = {
+    "direct",
+    "governed-single",
+    "governed-multi",
+    "missing-method-capability",
+    "premature-closeout",
+}
 REQUIRED = {
     "schema_version", "trial_id", "scenario", "repetition", "worker", "verifier", "package_hash",
     "observed_skill_root", "oracle_path", "oracle_sha256", "trial_root", "project_root",
@@ -93,6 +99,15 @@ def _validate_scenario(receipt: dict[str, Any], oracle: dict[str, Any], oracle_p
         raise TrialReceiptError("scenario result is not valid JSON") from exc
     if result.get("source_urls") != receipt["source_urls"]:
         raise TrialReceiptError("receipt source URLs do not match repository evidence")
+    if receipt["scenario"] == "missing-method-capability":
+        if receipt["source_urls"]:
+            raise TrialReceiptError("missing-method trial invented provider source links")
+        if (
+            result.get("lane") != "governed"
+            or "method_capability_missing" not in result.get("blockers", [])
+        ):
+            raise TrialReceiptError("missing Matt capability did not block governed work")
+        return
     snapshot = json.loads((fixture_root / "snapshot.json").read_text(encoding="utf-8"))
     if receipt["source_urls"] != snapshot.get("source_urls"):
         raise TrialReceiptError("scenario source URLs do not match the fixture")
@@ -148,7 +163,10 @@ def validate_trial_receipt(receipt: dict[str, Any], plugin_root: Path) -> None:
         raise TrialReceiptError("tool calls must come from the Codex event stream")
     if not isinstance(receipt.get("source_urls"), list) or any(not str(item).startswith(("https://", "http://")) for item in receipt["source_urls"]):
         raise TrialReceiptError("source URLs are invalid")
-    required_blocker = "state_contradiction" if scenario == "premature-closeout" else None
+    required_blocker = {
+        "premature-closeout": "state_contradiction",
+        "missing-method-capability": "method_capability_missing",
+    }.get(scenario)
     if receipt.get("blocker") != required_blocker:
         raise TrialReceiptError("scenario blocker does not match the oracle")
     evidence = receipt.get("repository_evidence")
@@ -179,7 +197,7 @@ def validate_trial_set(receipts: list[dict[str, Any]], plugin_root: Path) -> dic
     if len(set(scenarios)) != len(scenarios):
         raise TrialReceiptError("duplicate scenario receipt")
     if len(receipts) != len(SCENARIOS):
-        raise TrialReceiptError("canonical trial set requires exactly four receipts")
+        raise TrialReceiptError("canonical trial set requires exactly five receipts")
     if set(scenarios) != SCENARIOS:
         raise TrialReceiptError("canonical trial set is incomplete")
     for receipt in receipts:
@@ -188,7 +206,7 @@ def validate_trial_set(receipts: list[dict[str, Any]], plugin_root: Path) -> dic
     if len(set(identities)) != len(identities):
         raise TrialReceiptError("fresh agents must not be reused across scenarios")
     friction = sorted(item["friction"] for item in receipts)
-    median = (friction[1] + friction[2]) / 2
+    median = friction[2]
     if median > 2:
         raise TrialReceiptError("median trial friction exceeds 2")
-    return {"scenarios": sorted(SCENARIOS), "receipts": 4, "median_friction": median, "user_input_calls": 0, "external_mutations": 0}
+    return {"scenarios": sorted(SCENARIOS), "receipts": 5, "median_friction": median, "user_input_calls": 0, "external_mutations": 0}

@@ -1,0 +1,3 @@
+Use `$project-truss:start` for the new governed outcome described in `request.json`. Use only the installed package at `{{PLUGIN_ROOT}}`; do not read a source checkout or call live GitHub.
+
+Run `{{PLUGIN_ROOT}}/scripts/project-truss.sh -Action Plan -RepoRoot . -RequestPath request.json`. Write `result.json` with the returned `lane`, `blockers`, and an empty `source_urls` list. The repository is intentionally not Matt-configured and exposes no grilling method, so governed work must stop with `method_capability_missing` while direct work would remain available. Return outcome `blocked`, blocker `method_capability_missing`, and no source URLs.

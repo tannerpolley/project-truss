@@ -1,5 +1,5 @@
 interface:
   capabilities: [filesystem.read, shell, github, native.user-input]
   display_name: "Shape"
-  short_description: "Create the smallest native GitHub structure for one outcome."
-  default_prompt: "Use $project-truss:shape to plan and create only the GitHub structure the governed outcome needs."
+  short_description: "Publish Matt-shaped native GitHub outcomes and tickets."
+  default_prompt: "Use $project-truss:shape to grill when required, then publish the smallest native GitHub structure."

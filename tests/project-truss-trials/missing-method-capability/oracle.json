@@ -1,0 +1,5 @@
+{
+  "scenario": "missing-method-capability",
+  "expected_outcome": "blocked",
+  "required_blocker": "method_capability_missing"
+}

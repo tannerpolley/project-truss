@@ -7,7 +7,7 @@
     "title": "Prematurely closed change",
     "state": "CLOSED",
     "url": "https://github.example/issues/401",
-    "body": "## Outcome\n\nShip verified behavior.\n\n## Context or behavioral delta\n\nThe implementation is incomplete.\n\n## Scope and non-goals\n\nOne code leaf.\n\n## Acceptance criteria\n\n- [ ] The behavior is verified.\n\n## Verification basis\n\nPassing pull-request checks.\n\n## Constraints, risks, and authority\n\nFixture evidence cannot authorize completion."
+    "body": "## Parent\n\n#400\n\n## What to build\n\nShip verified behavior.\n\n## Acceptance criteria\n\n- [ ] The behavior is verified.\n\n## Blocked by\n\nNone — can start immediately."
   },
   "assignees": ["worker"],
   "children": [],

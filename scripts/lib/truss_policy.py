@@ -2,14 +2,15 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+import json
 from pathlib import Path
 import re
-from typing import Any, Mapping
+from typing import Any, ClassVar, Mapping
 
 import yaml
 
 
-SKILLS = ("start", "shape", "deliver", "close", "advanced-user-input")
+SKILLS = ("start", "shape", "resolve", "close", "advanced-user-input")
 HARD_TRIGGERS = (
     "explicit",
     "merge_or_publication",
@@ -18,19 +19,28 @@ HARD_TRIGGERS = (
     "multi_agent_delegation",
     "exceeds_safe_context",
 )
-ISSUE_SECTIONS = (
-    "Outcome",
-    "Context or behavioral delta",
-    "Scope and non-goals",
-    "Acceptance criteria",
-    "Verification basis",
-    "Constraints, risks, and authority",
+ROOT_ISSUE_SECTIONS = (
+    "Problem Statement",
+    "Solution",
+    "User Stories",
+    "Implementation Decisions",
+    "Testing Decisions",
+    "Out of Scope",
+    "Further Notes",
 )
+LEAF_ISSUE_SECTIONS = (
+    "Parent",
+    "What to build",
+    "Acceptance criteria",
+    "Blocked by",
+)
+ADVISORY_LABELS = {"ready_for_agent": "agent-shaped"}
 RECEIPTS = ("claim", "blocker_or_decision", "handoff", "verified_closeout")
 BLOCKERS = (
     "authority_required",
     "decision_required",
     "github_capability_missing",
+    "method_capability_missing",
     "contract_incomplete",
     "dependency_blocked",
     "claim_conflict",
@@ -44,7 +54,9 @@ _CONTRACT_KEYS = {
     "public_skill",
     "skills",
     "hard_triggers",
-    "issue_sections",
+    "root_issue_sections",
+    "leaf_issue_sections",
+    "advisory_labels",
     "receipts",
     "blockers",
 }
@@ -71,6 +83,18 @@ def _positive_int(data: Mapping[str, Any], name: str, default: int = 1) -> int:
     return value
 
 
+def _strings(data: Mapping[str, Any], name: str) -> tuple[str, ...]:
+    value = data.get(name, ())
+    if not isinstance(value, (list, tuple)) or any(
+        not isinstance(item, str) or not item.strip() for item in value
+    ):
+        raise ValueError(f"{name} must be an array of non-empty strings")
+    normalized = tuple(item.strip() for item in value)
+    if len(normalized) != len(set(normalized)):
+        raise ValueError(f"{name} must not contain duplicates")
+    return normalized
+
+
 @dataclass(frozen=True)
 class WorkRequest:
     explicit: bool = False
@@ -80,6 +104,11 @@ class WorkRequest:
     delegated_owners: int = 1
     exceeds_safe_context: bool = False
     material_decision_missing: bool = False
+    matt_configured: bool = False
+    new_outcome: bool = False
+    material_rescope: bool = False
+    required_methods: tuple[str, ...] = ()
+    available_methods: tuple[str, ...] = ()
 
     @classmethod
     def from_mapping(cls, data: Mapping[str, Any]) -> "WorkRequest":
@@ -92,6 +121,11 @@ class WorkRequest:
             delegated_owners=_positive_int(values, "delegated_owners"),
             exceeds_safe_context=_bool(values, "exceeds_safe_context"),
             material_decision_missing=_bool(values, "material_decision_missing"),
+            matt_configured=_bool(values, "matt_configured"),
+            new_outcome=_bool(values, "new_outcome"),
+            material_rescope=_bool(values, "material_rescope"),
+            required_methods=_strings(values, "required_methods"),
+            available_methods=_strings(values, "available_methods"),
         )
 
 
@@ -100,9 +134,15 @@ class TrussPlan:
     lane: str
     layers: tuple[str, ...]
     question_required: bool
+    blockers: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
-        return {"lane": self.lane, "layers": list(self.layers), "question_required": self.question_required}
+        return {
+            "lane": self.lane,
+            "layers": list(self.layers),
+            "question_required": self.question_required,
+            "blockers": list(self.blockers),
+        }
 
 
 def plan_work(request: WorkRequest) -> TrussPlan:
@@ -117,13 +157,25 @@ def plan_work(request: WorkRequest) -> TrussPlan:
         )
     )
     if not governed:
-        return TrussPlan("direct", (), False)
+        return TrussPlan("direct", (), False, ())
     layers = ["leaf", "pull_request"]
     if request.independent_units > 1:
         layers.insert(0, "parent")
     if request.release_or_milestone and request.independent_units > 1:
         layers.insert(0, "milestone")
-    return TrussPlan("governed", tuple(layers), request.material_decision_missing)
+    required = set(request.required_methods)
+    if request.new_outcome or request.material_rescope:
+        required.add("grilling")
+    missing_method = not request.matt_configured or not required.issubset(
+        request.available_methods
+    )
+    blockers = ("method_capability_missing",) if missing_method else ()
+    return TrussPlan(
+        "governed",
+        tuple(layers),
+        request.material_decision_missing,
+        blockers,
+    )
 
 
 @dataclass(frozen=True)
@@ -253,7 +305,218 @@ class FinalHealth:
 
 
 @dataclass(frozen=True)
+class ResolutionReceipt:
+    issues: tuple[int, ...]
+    owner: str
+    implementation_base: str
+    branch: str
+    worktree: str
+    pull_request: int | None = None
+    _COMMENT_PREFIX: ClassVar[str] = "Project Truss resolution receipt: "
+
+    @classmethod
+    def from_mapping(cls, data: Mapping[str, Any]) -> "ResolutionReceipt":
+        values = _strict_mapping(data, set(cls.__dataclass_fields__), "resolution receipt")
+        raw_issues = values.get("issues")
+        if not isinstance(raw_issues, list) or not raw_issues:
+            raise ValueError("issues must be a non-empty array")
+        issues = tuple(raw_issues)
+        if any(type(number) is not int or number < 1 for number in issues):
+            raise ValueError("issues must contain positive integers")
+        if len(issues) != len(set(issues)):
+            raise ValueError("issues must not contain duplicates")
+        owner = str(values.get("owner") or "").strip()
+        implementation_base = str(values.get("implementation_base") or "").strip()
+        branch = str(values.get("branch") or "").strip()
+        worktree = str(values.get("worktree") or "").strip()
+        if not all((owner, branch, worktree)):
+            raise ValueError("owner, branch, and worktree are required")
+        if re.fullmatch(r"[0-9a-fA-F]{40}|[0-9a-fA-F]{64}", implementation_base) is None:
+            raise ValueError("implementation_base must be a full Git commit hash")
+        pull_request = values.get("pull_request")
+        if pull_request is not None and (type(pull_request) is not int or pull_request < 1):
+            raise ValueError("pull_request must be a positive integer")
+        return cls(tuple(sorted(issues)), owner, implementation_base, branch, worktree, pull_request)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "issues": list(self.issues),
+            "owner": self.owner,
+            "implementation_base": self.implementation_base,
+            "branch": self.branch,
+            "worktree": self.worktree,
+            "pull_request": self.pull_request,
+        }
+
+    def comment(self) -> str:
+        return self._COMMENT_PREFIX + json.dumps(
+            self.to_dict(),
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+
+    @classmethod
+    def from_comment(cls, body: str) -> "ResolutionReceipt | None":
+        lines = [line.strip() for line in body.splitlines() if line.strip()]
+        matches = [line for line in lines if line.startswith(cls._COMMENT_PREFIX)]
+        if not matches:
+            return None
+        if len(matches) != 1:
+            raise ValueError("resolution comment must contain exactly one receipt")
+        payload = json.loads(matches[0][len(cls._COMMENT_PREFIX):])
+        if not isinstance(payload, Mapping):
+            raise ValueError("resolution receipt comment must contain a JSON object")
+        return cls.from_mapping(payload)
+
+
+@dataclass(frozen=True)
+class ResolutionPlan:
+    eligible: bool
+    issues: tuple[int, ...]
+    internal_dependencies: tuple[tuple[int, int], ...]
+    external_blockers: tuple[int, ...]
+    blockers: tuple[str, ...]
+    receipt: ResolutionReceipt
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "eligible": self.eligible,
+            "issues": list(self.issues),
+            "internal_dependencies": [
+                {"blocked": blocked, "blocked_by": blocked_by}
+                for blocked, blocked_by in self.internal_dependencies
+            ],
+            "external_blockers": list(self.external_blockers),
+            "blockers": list(self.blockers),
+            "receipt": self.receipt.to_dict(),
+        }
+
+
+def plan_resolution(
+    snapshots: list[OutcomeSnapshot] | tuple[OutcomeSnapshot, ...],
+    receipt: ResolutionReceipt,
+    *,
+    require_recorded: bool = False,
+) -> ResolutionPlan:
+    selected = set(receipt.issues)
+    observed = {snapshot.issue.number: snapshot for snapshot in snapshots}
+    findings: list[str] = []
+    if set(observed) != selected or len(observed) != len(snapshots):
+        findings.append("state_contradiction")
+    internal: set[tuple[int, int]] = set()
+    external: set[int] = set()
+    for number in receipt.issues:
+        snapshot = observed.get(number)
+        if snapshot is None:
+            continue
+        contract = parse_issue_contract(snapshot.issue.body)
+        if not snapshot.authoritative:
+            findings.append("external_state_unavailable")
+        if contract.kind != "leaf" or not contract.ok:
+            findings.append("contract_incomplete")
+        if snapshot.children or snapshot.issue.state != "OPEN":
+            findings.append("state_contradiction")
+        if len(snapshot.assignees) > 1 or (
+            snapshot.assignees and snapshot.assignees != (receipt.owner,)
+        ):
+            findings.append("claim_conflict")
+        recorded: list[ResolutionReceipt] = []
+        for comment in snapshot.comments:
+            if comment.author != receipt.owner:
+                continue
+            try:
+                parsed = ResolutionReceipt.from_comment(comment.body)
+            except (TypeError, ValueError, json.JSONDecodeError):
+                findings.append("state_contradiction")
+                continue
+            if parsed is not None:
+                recorded.append(parsed)
+        if recorded and (len(recorded) != 1 or recorded[0] != receipt):
+            findings.append("state_contradiction")
+        elif require_recorded and not recorded:
+            findings.append("state_contradiction")
+        findings.extend(value for value in snapshot.provider_findings if value in BLOCKERS)
+        for dependency in snapshot.blocked_by:
+            if dependency.state == "CLOSED":
+                continue
+            if dependency.number in selected:
+                internal.add((number, dependency.number))
+            else:
+                external.add(dependency.number)
+    if external:
+        findings.append("dependency_blocked")
+    blockers = _ordered(findings)
+    return ResolutionPlan(
+        eligible=not blockers,
+        issues=receipt.issues,
+        internal_dependencies=tuple(sorted(internal)),
+        external_blockers=tuple(sorted(external)),
+        blockers=blockers,
+        receipt=receipt,
+    )
+
+
+def close_resolution_findings(
+    snapshots: list[OutcomeSnapshot] | tuple[OutcomeSnapshot, ...],
+    receipt: ResolutionReceipt,
+    health: FinalHealth,
+) -> tuple[str, ...]:
+    findings: list[str] = []
+    observed = {snapshot.issue.number: snapshot for snapshot in snapshots}
+    if (
+        receipt.pull_request is None
+        or set(observed) != set(receipt.issues)
+        or len(observed) != len(snapshots)
+    ):
+        findings.append("state_contradiction")
+    for number in receipt.issues:
+        snapshot = observed.get(number)
+        if snapshot is None:
+            continue
+        contract = parse_issue_contract(snapshot.issue.body)
+        if not snapshot.authoritative:
+            findings.append("external_state_unavailable")
+        if contract.kind != "leaf" or not contract.ok:
+            findings.append("contract_incomplete")
+        if not contract.acceptance_complete or not health.verification_passed:
+            findings.append("verification_failed")
+        if snapshot.issue.state != "CLOSED":
+            findings.append("state_contradiction")
+        if snapshot.assignees != (receipt.owner,):
+            findings.append("claim_conflict")
+        if _open(snapshot.blocked_by):
+            findings.append("dependency_blocked")
+        findings.extend(value for value in snapshot.provider_findings if value in BLOCKERS)
+        recorded: list[ResolutionReceipt] = []
+        for comment in snapshot.comments:
+            if comment.author != receipt.owner:
+                continue
+            try:
+                parsed = ResolutionReceipt.from_comment(comment.body)
+            except (TypeError, ValueError, json.JSONDecodeError):
+                findings.append("state_contradiction")
+                continue
+            if parsed is not None:
+                recorded.append(parsed)
+        if len(recorded) != 1 or recorded[0] != receipt:
+            findings.append("state_contradiction")
+        prs = snapshot.closing_prs
+        if len(prs) != 1 or prs[0].number != receipt.pull_request:
+            findings.append("state_contradiction")
+        elif not _pr_verified(prs[0]):
+            findings.append("verification_failed")
+        elif not health.head_sha or prs[0].head_sha != health.head_sha:
+            findings.append("state_contradiction")
+    if not health.integration_healthy:
+        findings.append("integration_unhealthy")
+    if not health.source_clean:
+        findings.append("state_contradiction")
+    return _ordered(findings)
+
+
+@dataclass(frozen=True)
 class ContractResult:
+    kind: str
     ok: bool
     missing: tuple[str, ...]
     acceptance_total: int
@@ -271,13 +534,15 @@ def load_contract(path: Path) -> dict[str, Any]:
     missing = sorted(_CONTRACT_KEYS - set(data))
     if missing:
         raise ValueError("missing contract key(s): " + ", ".join(missing))
-    if type(data["version"]) is not int or data["version"] != 1:
-        raise ValueError("contract version must be 1")
+    if type(data["version"]) is not int or data["version"] != 2:
+        raise ValueError("contract version must be 2")
     expected = {
         "public_skill": "start",
         "skills": list(SKILLS),
         "hard_triggers": list(HARD_TRIGGERS),
-        "issue_sections": list(ISSUE_SECTIONS),
+        "root_issue_sections": list(ROOT_ISSUE_SECTIONS),
+        "leaf_issue_sections": list(LEAF_ISSUE_SECTIONS),
+        "advisory_labels": ADVISORY_LABELS,
         "receipts": list(RECEIPTS),
         "blockers": list(BLOCKERS),
     }
@@ -306,13 +571,40 @@ def _sections(body: str) -> dict[str, str]:
 
 def parse_issue_contract(body: str) -> ContractResult:
     found = _sections(body)
-    values = {name: found.get(name.casefold(), "") for name in ISSUE_SECTIONS}
+    root_present = any(name.casefold() in found for name in ROOT_ISSUE_SECTIONS)
+    leaf_present = any(name.casefold() in found for name in LEAF_ISSUE_SECTIONS)
+    if root_present and leaf_present:
+        return ContractResult("mixed", False, ("mixed issue contract",), 0, False, {})
+    if not root_present and not leaf_present:
+        return ContractResult("unknown", False, ("root or leaf issue contract",), 0, False, {})
+    kind = "root" if root_present else "leaf"
+    expected = ROOT_ISSUE_SECTIONS if kind == "root" else LEAF_ISSUE_SECTIONS
+    values = {name: found.get(name.casefold(), "") for name in expected}
     missing = [name for name, value in values.items() if not value]
-    boxes = re.findall(r"(?im)^\s*[-*]\s*\[([ xX])\]\s+\S", values["Acceptance criteria"])
-    if not boxes and "Acceptance criteria" not in missing:
-        missing.append("Acceptance criteria")
-    complete = bool(boxes) and all(value.lower() == "x" for value in boxes)
-    return ContractResult(not missing, tuple(missing), len(boxes), complete, values)
+    if kind == "root":
+        stories = re.findall(r"(?m)^\s*\d+\.\s+\S", values["User Stories"])
+        if not stories and "User Stories" not in missing:
+            missing.append("User Stories")
+        acceptance_total = len(stories)
+        complete = not missing
+    else:
+        parent = values["Parent"]
+        reference = r"(?:#[1-9]\d*|https://\S+/issues/[1-9]\d*)"
+        if parent and re.search(reference, parent) is None:
+            missing.append("Parent")
+        blocked_by = values["Blocked by"]
+        if (
+            blocked_by
+            and not blocked_by.casefold().startswith("none")
+            and re.search(reference, blocked_by) is None
+        ):
+            missing.append("Blocked by")
+        boxes = re.findall(r"(?im)^\s*[-*]\s*\[([ xX])\]\s+\S", values["Acceptance criteria"])
+        if not boxes and "Acceptance criteria" not in missing:
+            missing.append("Acceptance criteria")
+        acceptance_total = len(boxes)
+        complete = bool(boxes) and all(value.lower() == "x" for value in boxes)
+    return ContractResult(kind, not missing, tuple(missing), acceptance_total, complete, values)
 
 
 def _ordered(findings: list[str]) -> tuple[str, ...]:
@@ -427,7 +719,11 @@ class OutcomeDigest:
 def derive_digest(snapshot: OutcomeSnapshot) -> OutcomeDigest:
     state = derive_state(snapshot)
     contract = parse_issue_contract(snapshot.issue.body)
-    outcome = next((line.strip() for line in contract.sections.get("Outcome", "").splitlines() if line.strip()), snapshot.issue.title)
+    outcome_section = "Solution" if contract.kind == "root" else "What to build"
+    outcome = next(
+        (line.strip() for line in contract.sections.get(outcome_section, "").splitlines() if line.strip()),
+        snapshot.issue.title,
+    )
     candidates = snapshot.children if snapshot.children else (snapshot.issue,)
     ready = tuple(
         {"number": item.number, "title": item.title, "url": item.url}

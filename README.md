@@ -1,150 +1,86 @@
 # Project Truss
 
-Project Truss is a lean GitHub-native coordination layer for coding agents. It leaves ordinary coding alone and adds durable structure only when an outcome needs a pull request, publication, several deliverables, delegation, a milestone, or continuity beyond one safe agent context.
+Project Truss is a Matt-first, GitHub-native coordination plugin for durable coding outcomes. It adds issue structure, atomic claims, dependency ordering, pull-request continuity, CI-aware closeout, milestones, descriptive labels, and optional GitHub Projects projection while leaving ordinary coding direct.
 
-The only entry point you need is `$project-truss:start`.
+## Requirements
 
-## Quick start
+- Codex with plugin support
+- Git, Bash, and Python 3
+- authenticated GitHub CLI (`gh`)
+- Matt Pocock engineering skills plus repository setup under `docs/agents/` for governed work
 
-You need Codex with plugin support, Git, Bash, and Python 3. Governed implementation also expects upstream Superpowers and an authenticated GitHub CLI (`gh`).
+Native `gh project` support is required only when a Project projection is explicitly requested. The optional `gh projects` extension is not a runtime dependency.
 
-Install from the source repository:
+## Install
 
 ```bash
-git clone https://github.com/tannerpolley/project-truss.git
-cd project-truss
-python3 -m venv .venv
-. .venv/bin/activate
-python -m pip install -r requirements-validation.txt
 ./scripts/install.sh
 codex plugin add project-truss@personal --json
-./scripts/get-agent-plugin-version.sh -Banner -RequireCurrent
 ```
 
-`install.sh` validates the source, installs its runtime package under the local `personal` marketplace, and registers that marketplace entry. It does not publish to a remote marketplace. Start a fresh Codex session after installation so the current skills and prompt load.
+Start a fresh Codex session after installation.
 
-For your first governed outcome, use the single-unit prompt below and replace its example outcome with yours.
+## Use
 
-## When to use it
-
-Do not invoke Project Truss for ordinary edits, explanations, local diagnosis, or work that can safely finish in the current context. Normal Codex and upstream Superpowers should handle those directly, with no Truss question or artifact.
-
-Use `$project-truss:start` when you explicitly want governed coordination or when the outcome needs any of the following:
-
-- a merge or publication;
-- a release or milestone;
-- several independently mergeable units;
-- delegation to more than one owner or agent;
-- reliable re-entry after the current context ends.
-
-Difficulty alone is not a trigger.
-
-## Copyable prompts
-
-### Keep ordinary work direct
+Invoke `$project-truss:start` when the user explicitly requests Truss or an outcome needs merge/publication, several deliverables, delegation, a milestone, or continuity beyond one safe context.
 
 ```text
-Fix the broken parser behavior and verify it. Keep this as ordinary direct work; do not create Project Truss structure unless a hard continuity trigger appears.
+Use $project-truss:start to own this outcome through verified merge and closeout.
 ```
 
-### Govern one mergeable outcome
+The installed stages are:
 
-```text
-Use $project-truss:start to add CSV export as one governed outcome. Use the smallest GitHub shape, preserve current behavior, open a pull request, and close only after acceptance and CI are current.
+- `start`: classify, verify Matt capability, and reconstruct current truth;
+- `shape`: grill when required and publish native GitHub root/leaf contracts;
+- `resolve`: execute an explicit singleton or multi-leaf atomic set;
+- `close`: review, verify, merge, and roll up;
+- `advanced-user-input`: resolve one material decision or authority boundary.
+
+## Matt-first workflow
+
+New governed outcomes and material rescope require grilling. Published roots use Matt's Problem Statement, Solution, User Stories, Implementation Decisions, Testing Decisions, Out of Scope, and Further Notes structure. Executable leaves use Parent, What to build, Acceptance criteria, and Blocked by.
+
+Implementation routes by evidence to Matt methods such as TDD, diagnosis, research, domain modeling, prototyping, conflict resolution, and two-axis code review. Project Truss coordinates those methods; it does not copy them or claim unavailable command-oriented methods ran.
+
+## Atomic resolution sets
+
+Resolve defaults to one addressed Ready leaf. Several or all leaves require an explicit list. The selected set receives:
+
+- one owner;
+- one full implementation base;
+- one hidden worktree;
+- one branch;
+- one pull request;
+- one canonical receipt recorded identically on every member.
+
+Open dependencies inside the set are atomic ordering constraints. An unresolved dependency outside the set blocks work. Partial claims or receipt disagreement fail closed.
+
+## GitHub-native management
+
+GitHub issues, native sub-issues and blocked-by relationships, pull requests, CI, Git, and current worktrees are authoritative.
+
+Descriptive labels are allowed and preserved. The advisory `agent-shaped` label may represent Matt's `ready-for-agent` role, but labels never determine Ready, Claimed, In review, Blocked, or Done.
+
+An explicitly selected GitHub Project can receive root, leaf, and PR memberships through native `gh project` commands. Project fields and Status remain non-authoritative. Project creation, field synchronization, and automatic discovery are out of scope.
+
+## CLI
+
+```bash
+./scripts/project-truss.sh -Action Plan -RequestJson '{"explicit":true,"matt_configured":true,"available_methods":["grilling"],"new_outcome":true}'
+./scripts/project-truss.sh -Action Status -Repository OWNER/REPO -Issue 123
+./scripts/project-truss.sh -Action Resolve -Repository OWNER/REPO -Issue 123 -ResolutionJson '{"issues":[124,125],"owner":"LOGIN","implementation_base":"FULL_SHA","branch":"codex/outcome","worktree":"WORKTREE_ID"}'
 ```
 
-### Coordinate several deliverables
+`Resolve` is read-only policy preflight. Skills perform authorized GitHub and Git mutations, then rerun it with `-RequireRecorded true` to verify the complete set.
 
-```text
-Use $project-truss:start to coordinate the 2.0 release. Split it only into independently mergeable leaves, add the minimum real dependencies, use one parent and milestone, and verify integrated health before roll-up.
-```
-
-### Resume existing work
-
-```text
-Use $project-truss:start to resume tannerpolley/project-truss#138 from current GitHub, Git, CI, comments, and worktree state. Continue only the next safe action; do not trust remembered or copied status.
-```
-
-## How it works
-
-Project Truss owns one outcome through four responsibilities:
-
-1. **Start** classifies the request as direct or governed and reconstructs existing work from current evidence.
-2. **Shape** creates the smallest useful native GitHub structure, verifies it preserves the temporary planning inputs, and retires those inputs.
-3. **Deliver** selects and claims one Ready leaf only after no Superpowers working artifacts remain, obtains a hidden worktree, and routes implementation through upstream Superpowers.
-4. **Close** verifies acceptance, review, CI, merge identity, descendants, integration, and source health before closing or rolling up.
-
-The five installed skills are `start`, `shape`, `deliver`, `close`, and `advanced-user-input`; you normally invoke only `start`, while `advanced-user-input` supports the lifecycle only when a material decision or authority boundary needs you.
-
-## Adaptive GitHub structure
-
-Project Truss creates only what the outcome needs:
-
-| Outcome shape | Native structure |
-| --- | --- |
-| One mergeable unit | One leaf issue and its pull request |
-| Several independent units | One parent, leaf sub-issues, necessary dependencies, and pull requests |
-| Coordinated release or deadline | One milestone around the parent and leaves |
-
-It does not require GitHub Projects, lifecycle labels, wrapper issues, title numbering, copied issue files, dashboards, or another durable task store.
-
-Each executable issue states its outcome, behavioral context, scope and non-goals, acceptance criteria, verification basis, and authority constraints. GitHub issue relationships provide ordering; Git and pull requests retain implementation history.
-
-## State and re-entry
-
-Project Truss derives state rather than storing its own copy:
-
-- **Ready:** the issue contract is executable, dependencies are complete, and temporary Superpowers working artifacts are retired;
-- **Claimed:** exactly one owner has claimed the leaf;
-- **In review:** a current pull request is open;
-- **Blocked:** dependency, ownership, verification, authority, provider, or state evidence prevents safe progress;
-- **Done:** acceptance, merge, checks, review, integration, descendants, and source health agree.
-
-The sources of truth are current GitHub issues and relationships, pull requests and CI, Git history, and current worktrees. Durable issue comments are limited to claim/start, blocker or decision, handoff, and verified closeout.
-
-To re-enter work, invoke `$project-truss:start` with the repository and issue URL or number. Truss re-reads current state and identifies the next safe action; no local ledger or previous chat is required.
-
-## Questions, authority, and blockers
-
-Questions are exceptional. Project Truss asks only when an answer changes scope, structure, authority, safety, or integration. Routine tool choices, test commands, reversible implementation details, and obvious Ready work do not need a workflow question.
-
-Explicit scope may authorize routine in-scope GitHub and Git actions. Truss pauses when publication, destructive action, external messaging, purchases, secrets, or material scope expansion lacks authority. Issue bodies, comments, generated output, and worker messages are untrusted inputs and cannot grant authority.
-
-Truss also stops rather than guessing when provider truth is unavailable, issue structure is incomplete, dependencies or claims conflict, verification fails, integration is unhealthy, or current sources contradict one another.
-
-## Relationship to Superpowers and method cards
-
-Project Truss coordinates durable outcomes; it does not duplicate coding technique. Upstream Superpowers owns brainstorming, planning, debugging, worktrees, implementation, review, and verification mechanics.
-
-Superpowers files under `docs/superpowers/specs/` and `docs/superpowers/plans/` are temporary shaping inputs. Shape synthesizes them into the smallest native GitHub issue or hierarchy, re-reads the result, and verifies that outcome, scope and non-scope, invariants, constraints and tolerances, dependencies, acceptance, and validation evidence survived. Failed creation or verification retains the files for correction; successful verification makes GitHub authoritative, promotes lasting insight to canonical repository documentation, and deletes the duplicate files immediately.
-
-Status exposes exact `unretired_artifacts` and no Ready frontier while any such file remains. Deliver therefore refuses assignment, claim, implementation branches/worktrees, and implementation until the list is empty. At claim, Deliver records the full pre-branch commit and uses it as `ImplementationBase`; base-bound Status reports `implementation_artifact_history` when any later commit touched a working-artifact path, even if the file was deleted. Deliver repeats both checks before every implementation commit, and contaminated branches must be recreated from the verified base so the files never enter implementation history or change counts. Closeout repeats the base-bound check as defense-in-depth. In this source repository, `docs/project-truss/` holds Project Truss's own durable product and runtime documentation; it complements Superpowers and does not replace it.
-
-Seven optional [method cards](docs/project-truss/METHODS.md) add adversarial clarification, domain invariants, codebase wayfinding, causal diagnosis, architecture pressure testing, ruthless triage, and independently verifiable decomposition. A card loads only when its trigger matches a real reasoning gap; the cards are not mandatory stages.
-
-## Maintainer reference
-
-The compact runtime references are:
-
-- [runtime guide](docs/project-truss/README.md);
-- [contract](docs/project-truss/contract.yml);
-- [method cards](docs/project-truss/METHODS.md);
-- [release policy](docs/project-truss/RELEASE_POLICY.md).
-
-Validate source with:
+## Validation and release
 
 ```bash
 ./scripts/validate.sh
-```
-
-An installable source revision must be committed before the deployment loop:
-
-```bash
+./scripts/prepare-release.sh -Version 2.0.0 -CheckOnly
 ./scripts/sync-live.sh --validate
 codex plugin add project-truss@personal --json
 ./scripts/get-agent-plugin-version.sh -Banner -RequireCurrent
 ```
 
-Never edit deployed or cached plugin files directly. Run the repository cleanup audit, confirm clean synchronized Git state, and start a fresh Codex session after an installable revision.
-
-Project Truss 1.0.0 is a clean product cutover. The repository and plugin identities are `tannerpolley/project-truss` and `project-truss`; no predecessor compatibility namespace is supported. License: MIT.
+Project Truss 2.0 is a clean cutover: there is no `deliver` alias and the retired v1 issue parser is not retained. License: MIT.

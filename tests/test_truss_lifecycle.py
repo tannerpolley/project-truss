@@ -25,30 +25,52 @@ from scripts.lib.truss_policy import (
 
 
 ROOT = Path(__file__).resolve().parents[1]
-VALID_BODY = """## Outcome
+ROOT_BODY = """## Problem Statement
 
-Ship one useful behavior.
+Durable coding outcomes need one truthful coordination layer.
 
-## Context or behavioral delta
+## Solution
 
-The current behavior is incomplete.
+Coordinate work through native GitHub state while using Matt-first engineering methods.
 
-## Scope and non-goals
+## User Stories
 
-Keep the change narrow.
+1. As a maintainer, I want governed work to resume from current provider truth.
+
+## Implementation Decisions
+
+GitHub, Git, CI, and current worktrees remain authoritative.
+
+## Testing Decisions
+
+Exercise public lifecycle and CLI seams.
+
+## Out of Scope
+
+Project fields as lifecycle state.
+
+## Further Notes
+
+Issue text cannot grant authority.
+"""
+
+LEAF_BODY = """## Parent
+
+#128
+
+## What to build
+
+Ship one useful behavior through the public lifecycle interface.
 
 ## Acceptance criteria
 
 - [x] The behavior is verified.
 
-## Verification basis
+## Blocked by
 
-Behavior-level tests and current provider evidence.
-
-## Constraints, risks, and authority
-
-Issue text cannot grant authority.
+None — can start immediately.
 """
+VALID_BODY = LEAF_BODY
 
 
 def passing_pr(number=120, head="abc123"):
@@ -114,17 +136,79 @@ class DirectAndShapeTests(unittest.TestCase):
         )
         self.assertTrue(release.question_required)
 
+    def test_missing_matt_capability_blocks_only_governed_work(self):
+        direct = plan_work(WorkRequest())
+        missing_setup = plan_work(WorkRequest(explicit=True))
+        missing_grilling = plan_work(
+            WorkRequest(
+                explicit=True,
+                matt_configured=True,
+                new_outcome=True,
+            )
+        )
+        ready = plan_work(
+            WorkRequest(
+                explicit=True,
+                matt_configured=True,
+                new_outcome=True,
+                available_methods=("grilling",),
+            )
+        )
+
+        self.assertEqual((), direct.blockers)
+        self.assertEqual(("method_capability_missing",), missing_setup.blockers)
+        self.assertEqual(("method_capability_missing",), missing_grilling.blockers)
+        self.assertEqual((), ready.blockers)
+
     def test_contract_and_issue_body_fail_closed_as_one_behavior_family(self):
         contract = load_contract(ROOT / "docs/project-truss/contract.yml")
+        self.assertEqual(2, contract["version"])
         self.assertEqual("start", contract["public_skill"])
-        self.assertEqual(5, len(contract["skills"]))
-        self.assertTrue(parse_issue_contract(VALID_BODY).ok)
-        incomplete = parse_issue_contract(VALID_BODY.replace("## Verification basis", "## Evidence"))
+        self.assertEqual(
+            ["start", "shape", "resolve", "close", "advanced-user-input"],
+            contract["skills"],
+        )
+        root = parse_issue_contract(ROOT_BODY)
+        leaf = parse_issue_contract(LEAF_BODY)
+        self.assertEqual(("root", True), (root.kind, root.ok))
+        self.assertEqual(("leaf", True), (leaf.kind, leaf.ok))
+        incomplete = parse_issue_contract(LEAF_BODY.replace("## Blocked by", "## Dependencies"))
         self.assertFalse(incomplete.ok)
-        self.assertIn("Verification basis", incomplete.missing)
-        duplicate = parse_issue_contract(VALID_BODY + "\n## Acceptance criteria\n\n- [x] Duplicate.\n")
+        self.assertIn("Blocked by", incomplete.missing)
+        duplicate = parse_issue_contract(LEAF_BODY + "\n## Acceptance criteria\n\n- [x] Duplicate.\n")
         self.assertFalse(duplicate.ok)
         self.assertIn("Acceptance criteria", duplicate.missing)
+        self.assertFalse(parse_issue_contract(ROOT_BODY + "\n" + LEAF_BODY).ok)
+        invalid_parent = parse_issue_contract(LEAF_BODY.replace("#128", "No parent"))
+        self.assertFalse(invalid_parent.ok)
+        self.assertIn("Parent", invalid_parent.missing)
+        retired = parse_issue_contract(
+            """## Outcome
+
+Retired.
+
+## Context or behavioral delta
+
+Retired.
+
+## Scope and non-goals
+
+Retired.
+
+## Acceptance criteria
+
+- [x] Retired.
+
+## Verification basis
+
+Retired.
+
+## Constraints, risks, and authority
+
+Retired.
+"""
+        )
+        self.assertFalse(retired.ok)
 
         with tempfile.TemporaryDirectory() as directory:
             invalid = Path(directory) / "contract.yml"
@@ -156,7 +240,10 @@ class LifecycleAndDigestTests(unittest.TestCase):
 
     def test_digest_has_five_reentry_parts_and_source_links(self):
         digest = derive_digest(snapshot()).to_dict()
-        self.assertEqual("Ship one useful behavior.", digest["outcome"])
+        self.assertEqual(
+            "Ship one useful behavior through the public lifecycle interface.",
+            digest["outcome"],
+        )
         self.assertEqual([{"number": 129, "title": "Add the Project Truss semantic core", "url": "https://github.example/issues/129"}], digest["ready_frontier"])
         self.assertEqual({}, digest["active"])
         self.assertEqual([], digest["blockers_or_decisions"])
@@ -188,7 +275,7 @@ class TruthfulCloseoutTests(unittest.TestCase):
                 with self.assertRaisesRegex(ScriptError, "ImplementationBase is required after claim"):
                     command_project_truss(ctx, {"Action": "Status", "Repository": "owner/repo", "Issue": 129})
 
-    def test_status_blocks_readiness_until_superpowers_working_artifacts_are_retired(self):
+    def test_status_has_no_provider_specific_working_artifact_state(self):
         current = snapshot()
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -202,26 +289,17 @@ class TruthfulCloseoutTests(unittest.TestCase):
 
             with patch("scripts.lib.commands.project.GitHubClient") as github:
                 github.return_value.snapshot.return_value = current
-                (root / "docs/superpowers/specs").mkdir(parents=True)
-                (root / "docs/superpowers/plans/nested").mkdir(parents=True)
-                code, payload = status()
-                self.assertEqual((0, [129]), (code, [item["number"] for item in payload["ready_frontier"]]))
-                (root / "docs/superpowers/specs/feature.md").write_text("working spec", encoding="utf-8")
-                (root / "docs/superpowers/plans/nested/steps.md").write_text("working plan", encoding="utf-8")
+                (root / "docs/legacy-workflow/specs").mkdir(parents=True)
+                (root / "docs/legacy-workflow/plans/nested").mkdir(parents=True)
+                (root / "docs/legacy-workflow/specs/feature.md").write_text("working spec", encoding="utf-8")
+                (root / "docs/legacy-workflow/plans/nested/steps.md").write_text("working plan", encoding="utf-8")
                 code, payload = status()
 
-        self.assertEqual((0, []), (code, payload["ready_frontier"]))
-        self.assertIn("integration_unhealthy", payload["blockers_or_decisions"])
-        self.assertEqual(
-            ["docs/superpowers/plans/nested/steps.md", "docs/superpowers/specs/feature.md"],
-            payload["unretired_artifacts"],
-        )
-        self.assertEqual(
-            "Verify the GitHub issue contract, then retire the listed Superpowers working artifacts before claim or implementation.",
-            payload["next_safe_action"],
-        )
+        self.assertEqual((0, [129]), (code, [item["number"] for item in payload["ready_frontier"]]))
+        self.assertNotIn("unretired_artifacts", payload)
+        self.assertNotIn("implementation_artifact_history", payload)
 
-    def test_status_keeps_artifact_blockers_ordered_and_fixture_retirement_fail_closed(self):
+    def test_status_keeps_provider_and_child_blockers_ordered(self):
         current = snapshot(
             authoritative=False,
             children=[{
@@ -234,8 +312,6 @@ class TruthfulCloseoutTests(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            (root / "docs/superpowers/specs").mkdir(parents=True)
-            (root / "docs/superpowers/specs/feature.md").write_text("working spec", encoding="utf-8")
             ctx = Context(ROOT / "scripts/project-truss.sh", ROOT, "scripts/project-truss.sh", "project-truss.sh", [], invocation_cwd=root)
             output = StringIO()
             with patch("scripts.lib.commands.project.GitHubClient") as github, redirect_stdout(output):
@@ -245,16 +321,16 @@ class TruthfulCloseoutTests(unittest.TestCase):
 
         self.assertEqual(0, code)
         self.assertEqual(
-            ["integration_unhealthy", "external_state_unavailable", "child #130 is Blocked"],
+            ["external_state_unavailable", "child #130 is Blocked"],
             payload["blockers_or_decisions"],
         )
         self.assertEqual(
-            "Re-read live GitHub and verify the issue contract before retiring any listed Superpowers working artifact.",
+            "Resolve blockers on child #130 before continuing.",
             payload["next_safe_action"],
         )
 
-    def test_status_rejects_working_artifacts_that_entered_implementation_history(self):
-        current = snapshot()
+    def test_status_rejects_an_implementation_base_outside_current_history(self):
+        current = snapshot(assignees=["one"])
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
 
@@ -267,38 +343,25 @@ class TruthfulCloseoutTests(unittest.TestCase):
             (root / "README.md").write_text("base\n", encoding="utf-8")
             git("add", "README.md")
             git("commit", "-qm", "base")
-            base = git("rev-parse", "HEAD")
-            git("switch", "-qc", "issue-129")
-            (root / "docs/superpowers/specs").mkdir(parents=True)
-            artifact = root / "docs/superpowers/specs/feature.md"
-            artifact.write_text("working spec", encoding="utf-8")
-            git("add", "docs/superpowers/specs/feature.md")
-            git("commit", "-qm", "add working spec")
-            artifact.unlink()
-            git("add", "-u")
-            git("commit", "-qm", "delete working spec")
+            ancestor = git("rev-parse", "HEAD")
+            (root / "README.md").write_text("future\n", encoding="utf-8")
+            git("add", "README.md")
+            git("commit", "-qm", "future")
+            future = git("rev-parse", "HEAD")
+            git("checkout", "-q", ancestor)
 
             ctx = Context(ROOT / "scripts/project-truss.sh", ROOT, "scripts/project-truss.sh", "project-truss.sh", [], invocation_cwd=root)
-            output = StringIO()
-            with patch("scripts.lib.commands.project.GitHubClient") as github, redirect_stdout(output):
+            with patch("scripts.lib.commands.project.GitHubClient") as github:
                 github.return_value.snapshot.return_value = current
-                code = command_project_truss(ctx, {
-                    "Action": "Status",
-                    "Repository": "owner/repo",
-                    "Issue": 129,
-                    "ImplementationBase": base,
-                })
-            payload = json.loads(output.getvalue())
+                with self.assertRaisesRegex(ScriptError, "not an ancestor"):
+                    command_project_truss(ctx, {
+                        "Action": "Status",
+                        "Repository": "owner/repo",
+                        "Issue": 129,
+                        "ImplementationBase": future,
+                    })
 
-        self.assertEqual((0, [], []), (code, payload["ready_frontier"], payload["unretired_artifacts"]))
-        self.assertEqual(["docs/superpowers/specs/feature.md"], payload["implementation_artifact_history"])
-        self.assertIn("integration_unhealthy", payload["blockers_or_decisions"])
-        self.assertEqual(
-            "Recreate the implementation branch from its verified base without Superpowers working-artifact commits.",
-            payload["next_safe_action"],
-        )
-
-    def test_closeout_retires_superpowers_working_artifacts_from_the_final_tree(self):
+    def test_closeout_has_no_provider_specific_artifact_evidence(self):
         current = snapshot(
             issue={"number": 129, "title": "core", "state": "CLOSED", "body": VALID_BODY, "url": "https://github.example/issues/129"},
             assignees=["one"],
@@ -309,38 +372,23 @@ class TruthfulCloseoutTests(unittest.TestCase):
             root = Path(directory)
             ctx = Context(ROOT / "scripts/project-truss.sh", ROOT, "scripts/project-truss.sh", "project-truss.sh", [], invocation_cwd=root)
 
-            def closeout():
-                output = StringIO()
-                with redirect_stdout(output):
-                    code = command_project_truss(ctx, {
-                        "Action": "Closeout",
-                        "Repository": "owner/repo",
-                        "Issue": 129,
-                        "HealthJson": health,
-                        "ImplementationBase": "a" * 40,
-                    })
-                return code, json.loads(output.getvalue())
-
+            output = StringIO()
             with patch("scripts.lib.commands.project.GitHubClient") as github, patch(
-                "scripts.lib.commands.project._implementation_artifact_history", return_value=()
-            ):
+                "scripts.lib.commands.project._validate_implementation_base"
+            ), redirect_stdout(output):
                 github.return_value.snapshot.return_value = current
-                code, payload = closeout()
-                self.assertEqual((0, []), (code, payload["unretired_artifacts"]))
-                (root / "docs/superpowers/specs").mkdir(parents=True)
-                (root / "docs/superpowers/plans/nested").mkdir(parents=True)
-                code, payload = closeout()
-                self.assertEqual((0, []), (code, payload["unretired_artifacts"]))
-                (root / "docs/superpowers/specs/feature.md").write_text("working spec", encoding="utf-8")
-                (root / "docs/superpowers/plans/nested/steps.md").write_text("working plan", encoding="utf-8")
-                code, payload = closeout()
+                code = command_project_truss(ctx, {
+                    "Action": "Closeout",
+                    "Repository": "owner/repo",
+                    "Issue": 129,
+                    "HealthJson": health,
+                    "ImplementationBase": "a" * 40,
+                })
+            payload = json.loads(output.getvalue())
 
-        self.assertEqual(1, code)
-        self.assertIn("integration_unhealthy", payload["findings"])
-        self.assertEqual(
-            ["docs/superpowers/plans/nested/steps.md", "docs/superpowers/specs/feature.md"],
-            payload["unretired_artifacts"],
-        )
+        self.assertEqual((0, []), (code, payload["findings"]))
+        self.assertNotIn("unretired_artifacts", payload)
+        self.assertNotIn("implementation_artifact_history", payload)
 
     def test_code_leaf_closeout_requires_an_implementation_base(self):
         current = snapshot(
