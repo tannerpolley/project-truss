@@ -15,7 +15,7 @@ import tempfile
 sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
 from agent_usability import TrialReceiptError, validate_trial_receipt, validate_trial_set
 from package_provenance import runtime_contract_hash
-from run_agent_usability_trials_support import VERIFIER_SCHEMA, WORKER_SCHEMA, summarize_observed_events
+from run_agent_usability_trials_support import VERIFIER_SCHEMA, WORKER_SCHEMA, _initialize_trial_repository, build_worker_prompt, summarize_observed_events
 
 
 def installed_plugin_root() -> Path:
@@ -34,11 +34,9 @@ def installed_plugin_root() -> Path:
 
 
 def invoke_agent(project: Path, prompt: str, schema: Path, output: Path, events_path: Path, sandbox: str) -> tuple[dict, str, list[dict]]:
-    result = subprocess.run([
-        "codex", "exec", "--ephemeral", "--json", "--color", "never", "--sandbox", sandbox,
-        "--skip-git-repo-check", "-C", str(project), "--output-schema", str(schema),
-        "--output-last-message", str(output), prompt,
-    ], cwd=project, text=True, capture_output=True, stdin=subprocess.DEVNULL)
+    result = subprocess.run(
+        ["codex", "exec", "--ephemeral", "--json", "--color", "never", "--sandbox", sandbox, "--skip-git-repo-check", "-C", str(project), "--output-schema", str(schema), "--output-last-message", str(output), prompt],
+        cwd=project, text=True, capture_output=True, stdin=subprocess.DEVNULL)
     events_path.write_text(result.stdout, encoding="utf-8")
     if result.returncode != 0:
         raise RuntimeError(result.stderr.strip() or result.stdout.strip() or "Codex agent failed")
@@ -72,17 +70,14 @@ def run_trial(plugin_root: Path, output_dir: Path, scenario_dir: Path, worker_sc
         execution_root = Path(directory)
         project = execution_root / "project"
         shutil.copytree(fixture, project)
-        prompt = (scenario_dir / "prompt.md").read_text(encoding="utf-8").replace("{{PLUGIN_ROOT}}", str(plugin_root))
-        prompt += (
-            f"\n\nThe installed skill root is `{plugin_root}`. Inspect its manifest and report this exact path as "
-            "`observed_skill_root`. Return the requested structured result; do not read any Project Truss source checkout."
-        )
+        _initialize_trial_repository(project)
+        output_path = str((oracle.get("expected_file") or {}).get("path") or "result.json")
+        prompt = build_worker_prompt((scenario_dir / "prompt.md").read_text(encoding="utf-8"), plugin_root, output_path)
         worker_output = execution_root / "worker-output.json"
         worker_events = execution_root / "worker-events.jsonl"
         worker, worker_id, worker_stream = invoke_agent(project, prompt, worker_schema, worker_output, worker_events, "workspace-write")
         worker_metrics = summarize_observed_events(worker_stream)
         fixture_paths = {path.relative_to(fixture).as_posix() for path in fixture.rglob("*") if path.is_file()}
-        output_path = str((oracle.get("expected_file") or {}).get("path") or "result.json")
         actual_paths = {path.relative_to(project).as_posix() for path in project.rglob("*") if path.is_file() and ".git" not in path.parts}
         artifacts = sorted(actual_paths - fixture_paths - {output_path})
         verifier_prompt = (
