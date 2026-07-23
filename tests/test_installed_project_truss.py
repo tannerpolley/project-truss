@@ -5,23 +5,20 @@ import hashlib
 import json
 import os
 import shutil
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from scripts.lib.agent_usability import TrialReceiptError, validate_trial_set
 from scripts.lib.package_provenance import runtime_contract_hash
+from scripts.run_agent_usability_trials_support import _initialize_trial_repository, build_worker_prompt
 
 
 ROOT = Path(__file__).resolve().parents[1]
 PLUGIN_ROOT = Path(os.environ.get("PROJECT_TRUSS_INSTALLED_ROOT", ROOT)).resolve()
-SCENARIOS = {
-    "direct",
-    "governed-single",
-    "governed-multi",
-    "missing-method-capability",
-    "premature-closeout",
-}
+SCENARIOS = {"direct", "governed-single", "governed-multi", "missing-method-capability", "premature-closeout"}
 SKILLS = {"start", "shape", "resolve", "close", "advanced-user-input"}
 
 
@@ -29,16 +26,31 @@ class InstalledProjectTrussTests(unittest.TestCase):
     def test_installed_surface_has_one_front_door_and_five_scenarios(self):
         manifest = json.loads((PLUGIN_ROOT / ".codex-plugin" / "plugin.json").read_text(encoding="utf-8"))
         self.assertEqual(("project-truss", "2.0.0"), (manifest["name"], manifest["version"]))
-        self.assertEqual(
-            ["Use $project-truss:start only for explicit or hard-trigger governed work; ordinary coding stays direct."],
-            manifest["interface"]["defaultPrompt"],
-        )
+        self.assertEqual(["Use $project-truss:start only for explicit or hard-trigger governed work; ordinary coding stays direct."], manifest["interface"]["defaultPrompt"])
         self.assertEqual(SKILLS, {path.parent.name for path in (PLUGIN_ROOT / "skills").glob("*/SKILL.md")})
         trial_root = ROOT / "tests" / "project-truss-trials"
         self.assertEqual(SCENARIOS, {path.name for path in trial_root.iterdir() if path.is_dir()})
         for scenario in SCENARIOS:
             self.assertTrue((trial_root / scenario / "prompt.md").is_file())
             self.assertTrue((trial_root / scenario / "oracle.json").is_file())
+
+    def test_trial_repository_initialization_preserves_fixture(self):
+        scenario_root = ROOT / "tests" / "project-truss-trials" / "governed-single"
+        prompt = build_worker_prompt((scenario_root / "prompt.md").read_text(encoding="utf-8"), PLUGIN_ROOT, "result.json")
+        self.assertIn("mapping Status `blockers_or_decisions` to result `blockers`. `snapshot.json` is an immutable input fixture, not a generated artifact: preserve it unchanged.", prompt)
+        self.assertIn("Copied fixture files other than `result.json` are immutable inputs; preserve them unchanged.", prompt)
+        self.assertIn("mapping Status `blockers_or_decisions` to result `blockers`.", (ROOT / "tests" / "project-truss-trials" / "governed-multi" / "prompt.md").read_text(encoding="utf-8"))
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory) / "project"
+            shutil.copytree(scenario_root / "fixture", project)
+            snapshot = (project / "snapshot.json").read_bytes()
+            _initialize_trial_repository(project)
+            self.assertEqual(snapshot, (project / "snapshot.json").read_bytes())
+            tracked = subprocess.check_output(["git", "ls-tree", "-r", "--name-only", "HEAD"], cwd=project, text=True)
+            self.assertIn("snapshot.json", tracked.splitlines())
+            with mock.patch("scripts.run_agent_usability_trials_support.subprocess.run", return_value=subprocess.CompletedProcess([], 1, stderr="denied")):
+                with self.assertRaisesRegex(RuntimeError, "could not initialize trial Git repository: denied"):
+                    _initialize_trial_repository(project)
 
     def test_canonical_trial_set_covers_direct_resolution_capability_and_closeout(self):
         receipts = []
@@ -51,11 +63,7 @@ class InstalledProjectTrussTests(unittest.TestCase):
                 shutil.copytree(scenario_root / "fixture", project)
                 oracle_path = ROOT / "tests" / "project-truss-trials" / scenario / "oracle.json"
                 oracle = json.loads(oracle_path.read_text(encoding="utf-8"))
-                expected = (
-                    "blocked"
-                    if scenario in {"missing-method-capability", "premature-closeout"}
-                    else "pass"
-                )
+                expected = "blocked" if scenario in {"missing-method-capability", "premature-closeout"} else "pass"
                 source_urls = []
                 if scenario == "direct":
                     (project / "result.txt").write_text("complete\n", encoding="utf-8")

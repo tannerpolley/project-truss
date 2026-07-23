@@ -1,11 +1,10 @@
 """Codex output contracts and observed metrics for installed-product trials."""
 from __future__ import annotations
-
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 import re
 import shlex
-
+import subprocess
 
 WORKER_SCHEMA = {
     "type": "object",
@@ -34,9 +33,15 @@ VERIFIER_SCHEMA = {
     },
     "additionalProperties": False,
 }
-
 _MUTATING_TOOL = re.compile(r"(?:^|[._:-])(?:create|update|edit|delete|remove|close|reopen|merge|push|publish|send)(?:[._:-]|$)", re.I)
 _TOOL_TYPES = {"command_execution", "file_change", "mcp_tool_call", "request_user_input", "web_search"}
+def build_worker_prompt(template: str, plugin_root: Path, output_path: str) -> str:
+    return template.replace("{{PLUGIN_ROOT}}", str(plugin_root)) + f"\n\nCopied fixture files other than `{output_path}` are immutable inputs; preserve them unchanged.\n\nThe installed skill root is `{plugin_root}`. Inspect its manifest and report this exact path as `observed_skill_root`. Return the requested structured result; do not read any Project Truss source checkout."
+def _initialize_trial_repository(project: Path) -> None:
+    for command in (["git", "init", "-q"], ["git", "add", "."], ["git", "-c", "user.name=Project Truss Trial", "-c", "user.email=trial@example.com", "commit", "-qm", "fixture"]):
+        result = subprocess.run(command, cwd=project, capture_output=True, text=True)
+        if result.returncode:
+            raise RuntimeError(f"could not initialize trial Git repository: {result.stderr.strip() or result.returncode}")
 
 
 def _tool_name(item: Mapping[str, object]) -> str:
