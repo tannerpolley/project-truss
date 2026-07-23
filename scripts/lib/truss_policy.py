@@ -292,6 +292,7 @@ class FinalHealth:
     integration_healthy: bool
     source_clean: bool
     head_sha: str
+    review_passed: bool = False
 
     @classmethod
     def from_mapping(cls, data: Mapping[str, Any]) -> "FinalHealth":
@@ -301,6 +302,7 @@ class FinalHealth:
             integration_healthy=_bool(values, "integration_healthy"),
             source_clean=_bool(values, "source_clean"),
             head_sha=str(values.get("head_sha") or ""),
+            review_passed=_bool(values, "review_passed"),
         )
 
 
@@ -392,6 +394,43 @@ class ResolutionPlan:
         }
 
 
+def _resolution_comment_evidence(
+    snapshot: OutcomeSnapshot, receipt: ResolutionReceipt,
+) -> tuple[tuple[ResolutionReceipt, ...], tuple[str, ...]]:
+    recorded: list[ResolutionReceipt] = []
+    findings: list[str] = []
+    for comment in snapshot.comments:
+        try:
+            parsed = ResolutionReceipt.from_comment(comment.body)
+        except (TypeError, ValueError, json.JSONDecodeError):
+            findings.append("state_contradiction")
+            continue
+        if parsed is None:
+            continue
+        if comment.author != receipt.owner:
+            findings.append("claim_conflict")
+        else:
+            recorded.append(parsed)
+    return tuple(recorded), _ordered(findings)
+
+
+def _resolution_evidence_findings(
+    snapshot: OutcomeSnapshot, receipt: ResolutionReceipt, *, require_recorded: bool,
+) -> tuple[str, ...]:
+    recorded, findings = _resolution_comment_evidence(snapshot, receipt)
+    values = list(findings)
+    if recorded and (len(recorded) != 1 or recorded[0] != receipt):
+        values.append("state_contradiction")
+    elif require_recorded and not recorded:
+        values.append("state_contradiction")
+    prs = snapshot.closing_prs
+    if receipt.pull_request is None and prs:
+        values.append("state_contradiction")
+    elif receipt.pull_request is not None and (len(prs) != 1 or prs[0].number != receipt.pull_request):
+        values.append("state_contradiction")
+    return _ordered(values)
+
+
 def plan_resolution(
     snapshots: list[OutcomeSnapshot] | tuple[OutcomeSnapshot, ...],
     receipt: ResolutionReceipt,
@@ -416,25 +455,20 @@ def plan_resolution(
             findings.append("contract_incomplete")
         if snapshot.children or snapshot.issue.state != "OPEN":
             findings.append("state_contradiction")
-        if len(snapshot.assignees) > 1 or (
-            snapshot.assignees and snapshot.assignees != (receipt.owner,)
+        if (
+            require_recorded
+            and snapshot.assignees != (receipt.owner,)
+        ) or (
+            not require_recorded
+            and (
+                len(snapshot.assignees) > 1
+                or snapshot.assignees
+                and snapshot.assignees != (receipt.owner,)
+            )
         ):
             findings.append("claim_conflict")
-        recorded: list[ResolutionReceipt] = []
-        for comment in snapshot.comments:
-            if comment.author != receipt.owner:
-                continue
-            try:
-                parsed = ResolutionReceipt.from_comment(comment.body)
-            except (TypeError, ValueError, json.JSONDecodeError):
-                findings.append("state_contradiction")
-                continue
-            if parsed is not None:
-                recorded.append(parsed)
-        if recorded and (len(recorded) != 1 or recorded[0] != receipt):
-            findings.append("state_contradiction")
-        elif require_recorded and not recorded:
-            findings.append("state_contradiction")
+        findings.extend(_resolution_evidence_findings(
+            snapshot, receipt, require_recorded=require_recorded))
         findings.extend(value for value in snapshot.provider_findings if value in BLOCKERS)
         for dependency in snapshot.blocked_by:
             if dependency.state == "CLOSED":
@@ -478,7 +512,11 @@ def close_resolution_findings(
             findings.append("external_state_unavailable")
         if contract.kind != "leaf" or not contract.ok:
             findings.append("contract_incomplete")
-        if not contract.acceptance_complete or not health.verification_passed:
+        if (
+            not contract.acceptance_complete
+            or not health.verification_passed
+            or not health.review_passed
+        ):
             findings.append("verification_failed")
         if snapshot.issue.state != "CLOSED":
             findings.append("state_contradiction")
@@ -487,25 +525,14 @@ def close_resolution_findings(
         if _open(snapshot.blocked_by):
             findings.append("dependency_blocked")
         findings.extend(value for value in snapshot.provider_findings if value in BLOCKERS)
-        recorded: list[ResolutionReceipt] = []
-        for comment in snapshot.comments:
-            if comment.author != receipt.owner:
-                continue
-            try:
-                parsed = ResolutionReceipt.from_comment(comment.body)
-            except (TypeError, ValueError, json.JSONDecodeError):
-                findings.append("state_contradiction")
-                continue
-            if parsed is not None:
-                recorded.append(parsed)
-        if len(recorded) != 1 or recorded[0] != receipt:
-            findings.append("state_contradiction")
+        findings.extend(_resolution_evidence_findings(
+            snapshot, receipt, require_recorded=True))
         prs = snapshot.closing_prs
-        if len(prs) != 1 or prs[0].number != receipt.pull_request:
-            findings.append("state_contradiction")
-        elif not _pr_verified(prs[0]):
+        if len(prs) == 1 and prs[0].number == receipt.pull_request and not _pr_verified(prs[0]):
             findings.append("verification_failed")
-        elif not health.head_sha or prs[0].head_sha != health.head_sha:
+        elif len(prs) == 1 and prs[0].number == receipt.pull_request and (
+            not health.head_sha or prs[0].head_sha != health.head_sha
+        ):
             findings.append("state_contradiction")
     if not health.integration_healthy:
         findings.append("integration_unhealthy")
@@ -579,8 +606,16 @@ def parse_issue_contract(body: str) -> ContractResult:
         return ContractResult("unknown", False, ("root or leaf issue contract",), 0, False, {})
     kind = "root" if root_present else "leaf"
     expected = ROOT_ISSUE_SECTIONS if kind == "root" else LEAF_ISSUE_SECTIONS
+    expected_keys = {name.casefold() for name in expected}
     values = {name: found.get(name.casefold(), "") for name in expected}
     missing = [name for name, value in values.items() if not value]
+    unexpected = [
+        name.strip() for marks, name in re.findall(r"(?m)^(#{1,6})\s+(.+?)\s*$", body)
+        if len(marks) != 2 or name.strip().casefold() not in expected_keys
+    ]
+    if unexpected:
+        details = [*missing, *(f"unexpected section: {name}" for name in unexpected)]
+        return ContractResult(kind, False, tuple(details), 0, False, values)
     if kind == "root":
         stories = re.findall(r"(?m)^\s*\d+\.\s+\S", values["User Stories"])
         if not stories and "User Stories" not in missing:
@@ -632,7 +667,11 @@ def closeout_findings(snapshot: OutcomeSnapshot, health: FinalHealth) -> tuple[s
     if (not rollup and len(snapshot.assignees) != 1) or (rollup and len(snapshot.assignees) > 1):
         findings.append("claim_conflict")
     prs = snapshot.closing_prs
-    if not contract.acceptance_complete or not health.verification_passed:
+    if (
+        not contract.acceptance_complete
+        or not health.verification_passed
+        or not rollup and not health.review_passed
+    ):
         findings.append("verification_failed")
     if not rollup and (len(prs) != 1 or (prs and not _pr_verified(prs[0]))):
         findings.append("verification_failed")

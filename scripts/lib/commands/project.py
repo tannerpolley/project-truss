@@ -3,11 +3,12 @@ from __future__ import annotations
 
 import re
 import subprocess
+from pathlib import Path
 from typing import Any
 
 try:
     from ..command_support import Context, ScriptError, arg_value, emit, project_root_for, read_json_arg, resolve_under
-    from ..truss_github import GitHubClient, load_fixture
+    from ..truss_github import GitHubClient, ProjectProjection, load_fixture
     from ..truss_policy import (
         FinalHealth,
         ResolutionReceipt,
@@ -22,7 +23,7 @@ try:
     from ..workspace_isolation import resolve_workspace_isolation
 except ImportError:
     from command_support import Context, ScriptError, arg_value, emit, project_root_for, read_json_arg, resolve_under
-    from truss_github import GitHubClient, load_fixture
+    from truss_github import GitHubClient, ProjectProjection, load_fixture
     from truss_policy import (
         FinalHealth,
         ResolutionReceipt,
@@ -54,6 +55,37 @@ def _validate_implementation_base(root, base: str) -> None:
         raise ScriptError(f"could not validate ImplementationBase: {detail}")
 
 
+def _validate_resolution_workspace(root: Path, receipt: ResolutionReceipt) -> None:
+    branch = subprocess.run(
+        ["git", "branch", "--show-current"], cwd=root, text=True, capture_output=True, timeout=15,
+    )
+    top = subprocess.run(
+        ["git", "rev-parse", "--show-toplevel"], cwd=root, text=True, capture_output=True, timeout=15,
+    )
+    if branch.returncode or top.returncode:
+        raise ScriptError("could not validate resolution workspace")
+    worktree = Path(top.stdout.strip()).resolve()
+    if branch.stdout.strip() != receipt.branch:
+        raise ScriptError("resolution branch does not match the current branch")
+    if receipt.worktree not in {worktree.name, str(worktree)}:
+        raise ScriptError("resolution worktree does not match the current worktree")
+
+
+def _load_resolution(root: Path, args: dict[str, Any], issue: int) -> ResolutionReceipt:
+    resolution, _ = read_json_arg(root, args, "ResolutionJson", "ResolutionPath")
+    if not isinstance(resolution, dict):
+        raise ValueError("resolution must be a JSON object")
+    values = dict(resolution)
+    values.setdefault("issues", [issue])
+    receipt = ResolutionReceipt.from_mapping(values)
+    supplied = str(arg_value(args, "ImplementationBase", default=""))
+    if supplied and supplied != receipt.implementation_base:
+        raise ScriptError("ImplementationBase conflicts with the resolution receipt")
+    _validate_implementation_base(root, receipt.implementation_base)
+    _validate_resolution_workspace(root, receipt)
+    return receipt
+
+
 def command_workspace_isolation(ctx: Context, args: dict[str, Any]) -> int:
     root = project_root_for(ctx, args)
     request, _ = read_json_arg(root, args, "RequestJson", "RequestPath")
@@ -72,6 +104,10 @@ def command_project_truss(ctx: Context, args: dict[str, Any]) -> int:
         request, _ = read_json_arg(root, args, "RequestJson", "RequestPath", required=False)
         result = plan_work(WorkRequest.from_mapping(request or {})).to_dict()
         return emit({"ok": True, "action": action, "source": "policy", **result})
+    if action == "Project":
+        projection, _ = read_json_arg(root, args, "ProjectionJson", "ProjectionPath")
+        result = GitHubClient().project_membership(ProjectProjection.from_mapping(projection))
+        return emit({"ok": True, "action": action, "source": "live", **result})
     repository = str(arg_value(args, "Repository", default=""))
     issue_value = arg_value(args, "Issue")
     if not repository or issue_value in (None, ""):
@@ -81,13 +117,7 @@ def command_project_truss(ctx: Context, args: dict[str, Any]) -> int:
     except (TypeError, ValueError) as exc:
         raise ScriptError("Issue must be a positive integer") from exc
     if action == "Resolve":
-        resolution, _ = read_json_arg(root, args, "ResolutionJson", "ResolutionPath")
-        if not isinstance(resolution, dict):
-            raise ValueError("resolution must be a JSON object")
-        values = dict(resolution)
-        values.setdefault("issues", [issue])
-        receipt = ResolutionReceipt.from_mapping(values)
-        _validate_implementation_base(root, receipt.implementation_base)
+        receipt = _load_resolution(root, args, issue)
         require_recorded_value = str(arg_value(args, "RequireRecorded", default="false")).casefold()
         if require_recorded_value not in {"true", "false"}:
             raise ScriptError("RequireRecorded must be true or false")
@@ -101,35 +131,6 @@ def command_project_truss(ctx: Context, args: dict[str, Any]) -> int:
         return emit(
             {"ok": result.eligible, "action": action, "source": "live", **result.to_dict()},
             0 if result.eligible else 1,
-        )
-    if action == "Closeout" and (
-        arg_value(args, "ResolutionJson") or arg_value(args, "ResolutionPath")
-    ):
-        resolution, _ = read_json_arg(root, args, "ResolutionJson", "ResolutionPath")
-        if not isinstance(resolution, dict):
-            raise ValueError("resolution must be a JSON object")
-        values = dict(resolution)
-        values.setdefault("issues", [issue])
-        receipt = ResolutionReceipt.from_mapping(values)
-        supplied_base = str(arg_value(args, "ImplementationBase", default=""))
-        if supplied_base and supplied_base != receipt.implementation_base:
-            raise ScriptError("ImplementationBase conflicts with the resolution receipt")
-        _validate_implementation_base(root, receipt.implementation_base)
-        health, _ = read_json_arg(root, args, "HealthJson", "HealthPath")
-        final_health = FinalHealth.from_mapping(health)
-        github = GitHubClient()
-        snapshots = [github.snapshot(repository, number) for number in receipt.issues]
-        findings = close_resolution_findings(snapshots, receipt, final_health)
-        return emit(
-            {
-                "ok": not findings,
-                "action": action,
-                "source": "live",
-                "issues": list(receipt.issues),
-                "findings": list(findings),
-                "receipt": receipt.to_dict(),
-            },
-            0 if not findings else 1,
         )
     snapshot_arg = arg_value(args, "SnapshotPath")
     if action == "Status":
@@ -147,10 +148,21 @@ def command_project_truss(ctx: Context, args: dict[str, Any]) -> int:
     if action == "Closeout":
         if snapshot_arg:
             raise ScriptError("Closeout does not accept SnapshotPath")
+        resolution_supplied = arg_value(args, "ResolutionJson") or arg_value(args, "ResolutionPath")
+        if resolution_supplied:
+            receipt = _load_resolution(root, args, issue)
+            health, _ = read_json_arg(root, args, "HealthJson", "HealthPath")
+            github = GitHubClient()
+            snapshots = [github.snapshot(repository, number) for number in receipt.issues]
+            findings = close_resolution_findings(snapshots, receipt, FinalHealth.from_mapping(health))
+            payload = {"ok": not findings, "action": action, "source": "live",
+                       "issues": list(receipt.issues), "findings": list(findings),
+                       "receipt": receipt.to_dict()}
+            return emit(payload, 0 if not findings else 1)
         snapshot = GitHubClient().snapshot(repository, issue)
+        if not snapshot.children:
+            raise ScriptError("ResolutionJson is required for code-leaf Closeout")
         implementation_base = str(arg_value(args, "ImplementationBase", default=""))
-        if not snapshot.children and not implementation_base:
-            raise ScriptError("ImplementationBase is required for code-leaf Closeout")
         if implementation_base:
             _validate_implementation_base(root, implementation_base)
         health, _ = read_json_arg(root, args, "HealthJson", "HealthPath")
@@ -163,7 +175,7 @@ def command_project_truss(ctx: Context, args: dict[str, Any]) -> int:
             "findings": list(findings),
         }
         return emit(payload, 0 if not findings else 1)
-    raise ScriptError("Action must be Plan, Resolve, Status, or Closeout")
+    raise ScriptError("Action must be Plan, Project, Resolve, Status, or Closeout")
 
 
 HANDLERS = {

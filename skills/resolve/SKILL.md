@@ -37,4 +37,4 @@ Use only methods triggered by the work: TDD for stable behavior, diagnosing-bugs
 
 Keep canonical `CONTEXT.md`, ADRs, and useful research notes. Keep prototypes on throwaway branches with a linked verdict. Do not create local issue/spec/plan mirrors.
 
-If the root records a GitHub Project projection, pre-read and idempotently add the linked pull request with native `gh project item-add`, then verify membership. Project fields remain non-authoritative.
+If the root records a GitHub Project projection, run the Project action with the linked pull-request URL and `ensure:true`. It uses native `gh project item-add` idempotently and verifies membership. Project fields remain non-authoritative.

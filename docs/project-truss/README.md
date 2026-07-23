@@ -52,6 +52,12 @@ Shape preserves existing labels and may add explicitly requested descriptive lab
 
 An optional GitHub Project projection requires an explicit owner and project number. Truss uses native `gh project view`, `item-list`, and `item-add`; the `gh projects` extension is optional. It adds missing root, leaf, and PR memberships idempotently, verifies structured output without silent truncation, and records one canonical Project URL in the root's Further Notes. It never creates a Project, changes fields, or uses Project metadata as lifecycle input.
 
+The public Project action executes and verifies one membership at a time:
+
+```bash
+scripts/project-truss.sh -Action Project -ProjectionJson '{"owner":"OWNER","project":7,"url":"ISSUE_OR_PR_URL","ensure":true}'
+```
+
 ## Closeout
 
 Close reviews Standards once over the shared diff and Spec once per selected leaf. It requires matching receipts, checked acceptance, one shared PR/head, successful completed CI, clear review state, healthy integration, and clean source state. After merge, every selected leaf must derive Done before the root or milestone closes.

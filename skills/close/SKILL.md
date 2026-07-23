@@ -20,7 +20,7 @@ Do not merge with unresolved findings. A missing required review method is `meth
 
 Run repository-profile-selected verification and the full test suite. Require one shared pull request and head SHA, checked acceptance on every leaf, completed successful CI, no changes requested, a clean source tree, healthy integration, one owner, and matching receipts everywhere. Re-run `Resolve` with the pull-request number and `-RequireRecorded true`, then run set-level Closeout health bound to the pull-request head.
 
-When a Project projection is configured, re-check every selected issue and the pull request through structured native `gh project item-list` output. Membership is acceptance evidence only and never changes lifecycle state.
+When a Project projection is configured, run the Project action with `ensure:false` for every selected issue and the pull request and require `member:true`. It re-checks structured native `gh project item-list` output. Membership is acceptance evidence only and never changes lifecycle state.
 
 Merge the guarded head only with authority. Re-read GitHub after merge, mark acceptance from evidence, close every selected leaf through the shared pull request, and post at most one concise verified closeout receipt per leaf.
 

@@ -35,6 +35,6 @@ gh project item-list PROJECT --owner OWNER --format json --limit 1000
 gh project item-add PROJECT --owner OWNER --url ISSUE_URL --format json
 ```
 
-Record exactly one `GitHub Project projection: CANONICAL_URL` line under the root's `Further Notes`. Pre-read membership, add only missing issue items, then re-read and require one URL match. Detect truncated structured results before reporting absence. Do not create Projects, change fields or Status, remove items, or use Project metadata in lifecycle derivation.
+For each root or leaf URL, call `scripts/project-truss.sh -Action Project -ProjectionJson '{"owner":"OWNER","project":PROJECT,"url":"URL","ensure":true}'`. It pre-reads membership, adds only a missing item, re-reads, and fails on truncated output. Record exactly one returned `GitHub Project projection: CANONICAL_URL` line under the root's `Further Notes`. Do not create Projects, change fields or Status, remove items, or use Project metadata in lifecycle derivation.
 
 Missing native commands, access, OAuth scope, complete structured output, or verified membership produces `github_capability_missing` with safe remediation. Never run `gh auth refresh -h github.com -s project` without separate user approval.

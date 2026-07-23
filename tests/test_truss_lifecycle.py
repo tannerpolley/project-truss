@@ -179,6 +179,8 @@ class DirectAndShapeTests(unittest.TestCase):
         self.assertFalse(duplicate.ok)
         self.assertIn("Acceptance criteria", duplicate.missing)
         self.assertFalse(parse_issue_contract(ROOT_BODY + "\n" + LEAF_BODY).ok)
+        for marks in ("#", "##", "###", "######"):
+            self.assertFalse(parse_issue_contract(LEAF_BODY + f"\n{marks} Outcome\n\nRetired hybrid.\n").ok)
         invalid_parent = parse_issue_contract(LEAF_BODY.replace("#128", "No parent"))
         self.assertFalse(invalid_parent.ok)
         self.assertIn("Parent", invalid_parent.missing)
@@ -363,26 +365,22 @@ class TruthfulCloseoutTests(unittest.TestCase):
 
     def test_closeout_has_no_provider_specific_artifact_evidence(self):
         current = snapshot(
-            issue={"number": 129, "title": "core", "state": "CLOSED", "body": VALID_BODY, "url": "https://github.example/issues/129"},
-            assignees=["one"],
-            closing_prs=[passing_pr()],
+            issue={"number": 128, "title": "root", "state": "CLOSED", "body": ROOT_BODY, "url": "https://github.example/issues/128"},
+            children=[{"number": 129, "title": "child", "state": "CLOSED", "url": "https://github.example/issues/129", "lifecycle_state": "Done"}],
         )
-        health = json.dumps({"verification_passed": True, "integration_healthy": True, "source_clean": True, "head_sha": "abc123"})
+        health = json.dumps({"verification_passed": True, "review_passed": True, "integration_healthy": True, "source_clean": True, "head_sha": "abc123"})
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             ctx = Context(ROOT / "scripts/project-truss.sh", ROOT, "scripts/project-truss.sh", "project-truss.sh", [], invocation_cwd=root)
 
             output = StringIO()
-            with patch("scripts.lib.commands.project.GitHubClient") as github, patch(
-                "scripts.lib.commands.project._validate_implementation_base"
-            ), redirect_stdout(output):
+            with patch("scripts.lib.commands.project.GitHubClient") as github, redirect_stdout(output):
                 github.return_value.snapshot.return_value = current
                 code = command_project_truss(ctx, {
                     "Action": "Closeout",
                     "Repository": "owner/repo",
-                    "Issue": 129,
+                    "Issue": 128,
                     "HealthJson": health,
-                    "ImplementationBase": "a" * 40,
                 })
             payload = json.loads(output.getvalue())
 
@@ -390,7 +388,7 @@ class TruthfulCloseoutTests(unittest.TestCase):
         self.assertNotIn("unretired_artifacts", payload)
         self.assertNotIn("implementation_artifact_history", payload)
 
-    def test_code_leaf_closeout_requires_an_implementation_base(self):
+    def test_code_leaf_closeout_requires_a_resolution_receipt(self):
         current = snapshot(
             issue={"number": 129, "title": "core", "state": "CLOSED", "body": VALID_BODY, "url": "https://github.example/issues/129"},
             assignees=["one"],
@@ -402,7 +400,7 @@ class TruthfulCloseoutTests(unittest.TestCase):
             ctx = Context(ROOT / "scripts/project-truss.sh", ROOT, "scripts/project-truss.sh", "project-truss.sh", [], invocation_cwd=root)
             with patch("scripts.lib.commands.project.GitHubClient") as github:
                 github.return_value.snapshot.return_value = current
-                with self.assertRaisesRegex(ScriptError, "ImplementationBase is required for code-leaf Closeout"):
+                with self.assertRaisesRegex(ScriptError, "ResolutionJson is required for code-leaf Closeout"):
                     command_project_truss(ctx, {
                         "Action": "Closeout",
                         "Repository": "owner/repo",
@@ -417,7 +415,7 @@ class TruthfulCloseoutTests(unittest.TestCase):
         )
         self.assertEqual(
             ("claim_conflict",),
-            closeout_findings(current, FinalHealth(True, True, True, "abc123")),
+            closeout_findings(current, FinalHealth(True, True, True, "abc123", review_passed=True)),
         )
 
     def test_verified_parent_rollup_does_not_require_a_parent_code_pr(self):
@@ -448,7 +446,7 @@ class TruthfulCloseoutTests(unittest.TestCase):
             blocked_by=[{"number": 128, "title": "blocker", "state": "OPEN", "url": "https://github.example/issues/128"}],
             closing_prs=[passing_pr()],
         )
-        health = FinalHealth(True, True, True, "abc123")
+        health = FinalHealth(True, True, True, "abc123", review_passed=True)
         self.assertEqual(
             ("dependency_blocked", "external_state_unavailable"),
             closeout_findings(current, health),
@@ -471,11 +469,16 @@ class TruthfulCloseoutTests(unittest.TestCase):
             assignees=["one"],
             closing_prs=[{**passing_pr(), "review_decision": "CHANGES_REQUESTED"}],
         )
-        self.assertEqual(("verification_failed",), closeout_findings(reviewed, FinalHealth(True, True, True, "abc123")))
+        approved = snapshot(
+            issue={"number": 129, "title": "core", "state": "CLOSED", "body": VALID_BODY, "url": "https://github.example/issues/129"},
+            assignees=["one"], closing_prs=[passing_pr()],
+        )
+        self.assertEqual(("verification_failed",), closeout_findings(approved, FinalHealth(True, True, True, "abc123")))
+        self.assertEqual(("verification_failed",), closeout_findings(reviewed, FinalHealth(True, True, True, "abc123", review_passed=True)))
         self.assertEqual(("state_contradiction",), closeout_findings(snapshot(
             issue={"number": 129, "title": "core", "state": "CLOSED", "body": VALID_BODY, "url": "https://github.example/issues/129"},
             assignees=["one"], closing_prs=[passing_pr()],
-        ), FinalHealth(True, True, False, "abc123")))
+        ), FinalHealth(True, True, False, "abc123", review_passed=True)))
 
 
 class GitHubObservationTests(unittest.TestCase):
@@ -535,6 +538,10 @@ class GitHubObservationTests(unittest.TestCase):
         self.assertFalse(unchecked.closing_prs[0].checks_complete)
         self.assertFalse(unchecked.closing_prs[0].checks_successful)
 
+        issue_payload["data"]["repository"]["issue"]["comments"]["pageInfo"]["hasNextPage"] = True
+        with self.assertRaisesRegex(GitHubObservationError, "comments exceeds"):
+            GitHubClient(runner=runner).snapshot("owner/repo", 116)
+        issue_payload["data"]["repository"]["issue"]["comments"]["pageInfo"]["hasNextPage"] = False
         issue_payload["data"]["repository"]["issue"]["assignees"]["nodes"] = [{}]
         with self.assertRaisesRegex(GitHubObservationError, "assignee identity"):
             GitHubClient(runner=runner).snapshot("tannerpolley/project-truss", 116)
