@@ -248,7 +248,7 @@ def _line_budgets(root: Path) -> dict[str, int]:
         "test_lines": sum(len(read_text(path).splitlines()) for path in test_files),
         "shell_files": sum(1 for path in script_files if path.suffix == ".sh") + sum(1 for path in (root / "skills").rglob("*.sh")),
     }
-    limits = {"skill_lines": 300, "script_lines": 4400, "test_lines": 2700, "shell_files": 18}
+    limits = {"skill_lines": 300, "script_lines": 4050, "test_lines": 2200, "shell_files": 18}
     excess = [f"{name}={values[name]}>{limit}" for name, limit in limits.items() if values[name] > limit]
     if excess:
         raise ScriptError("lean budget failed: " + ", ".join(excess))
