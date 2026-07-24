@@ -1,0 +1,585 @@
+"""Fail-closed Git synchronization and merged-outcome retirement."""
+from __future__ import annotations
+
+from dataclasses import asdict, dataclass
+import json
+from pathlib import Path
+import re
+import subprocess
+from typing import Any, Callable, Mapping
+
+
+Runner = Callable[[list[str], Path, int], subprocess.CompletedProcess[str]]
+_PROTECTED_BRANCHES = {"main", "master", "develop", "development", "trunk", "default"}
+
+
+class GitLifecycleError(RuntimeError):
+    def __init__(self, blocker: str, message: str):
+        self.blocker = blocker
+        super().__init__(message)
+
+
+@dataclass(frozen=True)
+class GitSyncResult:
+    canonical_checkout: str
+    primary_remote: str
+    default_branch: str
+    remote_ref: str
+    implementation_base: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class CleanupRequest:
+    pull_request: int
+    branch: str
+    worktree: str
+    cleanup_authorized: bool
+
+    @classmethod
+    def from_mapping(cls, data: Any) -> "CleanupRequest":
+        expected = {"pull_request", "branch", "worktree", "cleanup_authorized"}
+        if not isinstance(data, Mapping) or set(data) != expected:
+            raise ValueError(
+                "cleanup request requires exactly pull_request, branch, worktree, and cleanup_authorized"
+            )
+        if type(data["pull_request"]) is not int or data["pull_request"] < 1:
+            raise ValueError("cleanup pull_request must be a positive integer")
+        branch = str(data["branch"]).strip()
+        worktree = str(data["worktree"]).strip()
+        if not branch or not worktree:
+            raise ValueError("cleanup branch and worktree are required")
+        if type(data["cleanup_authorized"]) is not bool:
+            raise ValueError("cleanup_authorized must be boolean")
+        return cls(data["pull_request"], branch, worktree, data["cleanup_authorized"])
+
+
+@dataclass(frozen=True)
+class CleanupResult:
+    canonical_checkout: str
+    primary_remote: str
+    default_branch: str
+    implementation_base: str
+    cleanup: str
+    detail: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class _RepositoryState:
+    canonical_checkout: Path
+    primary_remote: str
+    default_branch: str
+    remote_ref: str
+
+
+@dataclass(frozen=True)
+class _Worktree:
+    path: Path
+    branch: str | None
+
+
+def _default_runner(
+    command: list[str], cwd: Path, timeout: int = 30
+) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        command,
+        cwd=cwd,
+        text=True,
+        capture_output=True,
+        timeout=timeout,
+        check=False,
+    )
+
+
+def _run(
+    runner: Runner,
+    command: list[str],
+    cwd: Path,
+    *,
+    timeout: int = 30,
+) -> subprocess.CompletedProcess[str]:
+    try:
+        return runner(command, cwd, timeout)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise GitLifecycleError("external_state_unavailable", str(exc)) from exc
+
+
+def _checked(
+    runner: Runner,
+    command: list[str],
+    cwd: Path,
+    *,
+    blocker: str = "external_state_unavailable",
+) -> str:
+    result = _run(runner, command, cwd)
+    if result.returncode:
+        detail = (result.stderr or result.stdout or "command failed").strip()
+        raise GitLifecycleError(blocker, detail)
+    return result.stdout.strip()
+
+
+def _git(
+    runner: Runner,
+    cwd: Path,
+    *args: str,
+    blocker: str = "external_state_unavailable",
+) -> str:
+    return _checked(runner, ["git", *args], cwd, blocker=blocker)
+
+
+def _worktrees(runner: Runner, repo_root: Path) -> list[_Worktree]:
+    output = _git(runner, repo_root, "worktree", "list", "--porcelain")
+    worktrees: list[_Worktree] = []
+    path: Path | None = None
+    branch: str | None = None
+    for line in [*output.splitlines(), ""]:
+        if line.startswith("worktree "):
+            if path is not None:
+                worktrees.append(_Worktree(path, branch))
+            path = Path(line.removeprefix("worktree ")).resolve()
+            branch = None
+        elif line.startswith("branch refs/heads/"):
+            branch = line.removeprefix("branch refs/heads/")
+        elif not line and path is not None:
+            worktrees.append(_Worktree(path, branch))
+            path = None
+            branch = None
+    if not worktrees:
+        raise GitLifecycleError(
+            "state_contradiction", "Git did not report a canonical checkout"
+        )
+    return worktrees
+
+
+def _remote_default(
+    runner: Runner, canonical: Path, remote: str
+) -> str | None:
+    result = _run(
+        runner, ["git", "ls-remote", "--symref", remote, "HEAD"], canonical
+    )
+    if result.returncode:
+        return None
+    for line in result.stdout.splitlines():
+        match = re.fullmatch(r"ref:\s+refs/heads/(.+)\s+HEAD", line.strip())
+        if match:
+            return match.group(1)
+    return None
+
+
+def _config(
+    runner: Runner, canonical: Path, key: str
+) -> str:
+    result = _run(runner, ["git", "config", "--get", key], canonical)
+    return result.stdout.strip() if result.returncode == 0 else ""
+
+
+def _local_branch_exists(
+    runner: Runner, canonical: Path, branch: str
+) -> bool:
+    result = _run(
+        runner,
+        ["git", "show-ref", "--verify", "--quiet", f"refs/heads/{branch}"],
+        canonical,
+    )
+    return result.returncode == 0
+
+
+def _github_repository(remote_url: str) -> str | None:
+    patterns = (
+        r"https?://github\.com/(?P<repo>[^/]+/[^/]+?)(?:\.git)?/?$",
+        r"git@github\.com:(?P<repo>[^/]+/[^/]+?)(?:\.git)?$",
+        r"ssh://git@github\.com/(?P<repo>[^/]+/[^/]+?)(?:\.git)?/?$",
+    )
+    for pattern in patterns:
+        match = re.fullmatch(pattern, remote_url.strip(), re.IGNORECASE)
+        if match:
+            return match.group("repo")
+    return None
+
+
+def _discover_repository(
+    repo_root: Path, runner: Runner
+) -> _RepositoryState:
+    root = repo_root.resolve()
+    worktrees = _worktrees(runner, root)
+    canonical = worktrees[0].path
+    remotes = _git(runner, canonical, "remote").splitlines()
+    if not remotes:
+        raise GitLifecycleError(
+            "external_state_unavailable", "repository has no configured remotes"
+        )
+
+    defaults = {
+        remote: default
+        for remote in remotes
+        if (default := _remote_default(runner, canonical, remote))
+    }
+    candidates: list[tuple[str, str]] = []
+    for remote, default in defaults.items():
+        if not _local_branch_exists(runner, canonical, default):
+            continue
+        if (
+            _config(runner, canonical, f"branch.{default}.remote") == remote
+            and _config(runner, canonical, f"branch.{default}.merge")
+            == f"refs/heads/{default}"
+        ):
+            candidates.append((remote, default))
+
+    if len(candidates) > 1:
+        preferred = _config(runner, canonical, "remote.pushDefault")
+        selected = [candidate for candidate in candidates if candidate[0] == preferred]
+        if len(selected) == 1:
+            candidates = selected
+    if len(candidates) != 1:
+        raise GitLifecycleError(
+            "state_contradiction",
+            "primary remote and default branch are ambiguous or untracked",
+        )
+    remote, default = candidates[0]
+    return _RepositoryState(
+        canonical_checkout=canonical,
+        primary_remote=remote,
+        default_branch=default,
+        remote_ref=f"refs/remotes/{remote}/{default}",
+    )
+
+
+def synchronize_default(
+    repo_root: Path,
+    *,
+    runner: Runner = _default_runner,
+) -> GitSyncResult:
+    state = _discover_repository(repo_root, runner)
+    canonical = state.canonical_checkout
+    current = _git(runner, canonical, "branch", "--show-current")
+    if current != state.default_branch:
+        raise GitLifecycleError(
+            "state_contradiction",
+            "canonical checkout is not on the discovered default branch",
+        )
+    if _git(runner, canonical, "status", "--porcelain"):
+        raise GitLifecycleError(
+            "state_contradiction", "canonical checkout is dirty"
+        )
+
+    _git(
+        runner,
+        canonical,
+        "fetch",
+        "--prune",
+        state.primary_remote,
+        blocker="external_state_unavailable",
+    )
+    refreshed_default = _remote_default(
+        runner, canonical, state.primary_remote
+    )
+    if refreshed_default != state.default_branch:
+        raise GitLifecycleError(
+            "state_contradiction",
+            "primary remote default branch changed during synchronization",
+        )
+    if not _run(
+        runner,
+        ["git", "show-ref", "--verify", "--quiet", state.remote_ref],
+        canonical,
+    ).returncode == 0:
+        raise GitLifecycleError(
+            "external_state_unavailable",
+            f"remote-tracking default branch is missing: {state.remote_ref}",
+        )
+
+    merge = _run(
+        runner,
+        ["git", "merge", "--ff-only", state.remote_ref],
+        canonical,
+    )
+    if merge.returncode:
+        raise GitLifecycleError(
+            "state_contradiction",
+            "canonical default branch cannot be fast-forwarded",
+        )
+    local_head = _git(runner, canonical, "rev-parse", "HEAD")
+    remote_head = _git(runner, canonical, "rev-parse", state.remote_ref)
+    if local_head != remote_head:
+        raise GitLifecycleError(
+            "state_contradiction",
+            "canonical default branch cannot be fast-forwarded to exact remote state",
+        )
+    if _git(runner, canonical, "status", "--porcelain"):
+        raise GitLifecycleError(
+            "state_contradiction",
+            "canonical checkout changed outside the fast-forward",
+        )
+    return GitSyncResult(
+        canonical_checkout=str(canonical),
+        primary_remote=state.primary_remote,
+        default_branch=state.default_branch,
+        remote_ref=state.remote_ref,
+        implementation_base=local_head,
+    )
+
+
+def _pull_request_proof(
+    runner: Runner,
+    cwd: Path,
+    repository: str,
+    request: CleanupRequest,
+) -> Mapping[str, Any]:
+    fields = (
+        "number,state,mergedAt,headRefName,headRefOid,"
+        "baseRefName,url"
+    )
+    output = _checked(
+        runner,
+        [
+            "gh",
+            "pr",
+            "view",
+            str(request.pull_request),
+            "--repo",
+            repository,
+            "--json",
+            fields,
+        ],
+        cwd,
+        blocker="external_state_unavailable",
+    )
+    try:
+        payload = json.loads(output)
+    except (TypeError, ValueError, json.JSONDecodeError) as exc:
+        raise GitLifecycleError(
+            "external_state_unavailable", f"invalid pull request JSON: {exc}"
+        ) from exc
+    required = {
+        "number",
+        "state",
+        "mergedAt",
+        "headRefName",
+        "headRefOid",
+        "baseRefName",
+        "url",
+    }
+    if not isinstance(payload, Mapping) or not required.issubset(payload):
+        raise GitLifecycleError(
+            "github_capability_missing", "pull request proof is incomplete"
+        )
+    if (
+        payload["number"] != request.pull_request
+        or str(payload["state"]).upper() != "MERGED"
+        or not payload["mergedAt"]
+    ):
+        raise GitLifecycleError(
+            "state_contradiction",
+            f"pull request #{request.pull_request} is not confirmed merged",
+        )
+    if payload["headRefName"] != request.branch:
+        raise GitLifecycleError(
+            "state_contradiction",
+            "pull request head branch does not match the cleanup request",
+        )
+    return payload
+
+
+def cleanup_merged_outcome(
+    repo_root: Path,
+    repository: str,
+    request: CleanupRequest,
+    *,
+    runner: Runner = _default_runner,
+) -> CleanupResult:
+    root = repo_root.resolve()
+    proof = _pull_request_proof(runner, root, repository, request)
+    discovered = _discover_repository(root, runner)
+    remote_head = _run(
+        runner,
+        [
+            "git",
+            "ls-remote",
+            "--heads",
+            discovered.primary_remote,
+            f"refs/heads/{request.branch}",
+        ],
+        discovered.canonical_checkout,
+    )
+    if remote_head.returncode:
+        detail = (remote_head.stderr or remote_head.stdout).strip()
+        raise GitLifecycleError("external_state_unavailable", detail)
+    if remote_head.stdout.strip():
+        raise GitLifecycleError(
+            "state_contradiction",
+            "pull request head branch still exists on the primary remote",
+        )
+
+    synced = synchronize_default(root, runner=runner)
+    if proof["baseRefName"] != synced.default_branch:
+        raise GitLifecycleError(
+            "state_contradiction",
+            "pull request base does not match the discovered default branch",
+        )
+    if not request.cleanup_authorized:
+        return CleanupResult(
+            synced.canonical_checkout,
+            synced.primary_remote,
+            synced.default_branch,
+            synced.implementation_base,
+            "skipped_not_authorized",
+            "default branch synchronized; local cleanup authority was not granted",
+        )
+    canonical = Path(synced.canonical_checkout)
+    remote_url = _git(
+        runner,
+        canonical,
+        "remote",
+        "get-url",
+        synced.primary_remote,
+    )
+    github_repository = _github_repository(remote_url)
+    if (
+        github_repository is None
+        or github_repository.casefold() != repository.casefold()
+    ):
+        return CleanupResult(
+            synced.canonical_checkout,
+            synced.primary_remote,
+            synced.default_branch,
+            synced.implementation_base,
+            "skipped_non_github_remote",
+            "primary remote is not the GitHub repository that supplied merge proof",
+        )
+    if request.branch == synced.default_branch or request.branch in _PROTECTED_BRANCHES:
+        return CleanupResult(
+            synced.canonical_checkout,
+            synced.primary_remote,
+            synced.default_branch,
+            synced.implementation_base,
+            "skipped_protected_branch",
+            "protected default branches are never cleanup targets",
+        )
+
+    worktrees = _worktrees(runner, root)
+    checked_out = next(
+        (worktree for worktree in worktrees if worktree.branch == request.branch),
+        None,
+    )
+    requested_worktree = Path(request.worktree).resolve()
+    if checked_out is not None:
+        if checked_out.path != requested_worktree or checked_out.path == canonical:
+            return CleanupResult(
+                synced.canonical_checkout,
+                synced.primary_remote,
+                synced.default_branch,
+                synced.implementation_base,
+                "skipped_checked_out_worktree",
+                f"branch is still checked out in {checked_out.path}",
+            )
+        if _git(runner, checked_out.path, "status", "--porcelain"):
+            return CleanupResult(
+                synced.canonical_checkout,
+                synced.primary_remote,
+                synced.default_branch,
+                synced.implementation_base,
+                "skipped_dirty_worktree",
+                f"outcome worktree is dirty: {checked_out.path}",
+            )
+        removal = _run(
+            runner,
+            ["git", "worktree", "remove", str(checked_out.path)],
+            canonical,
+        )
+        if removal.returncode:
+            detail = (removal.stderr or removal.stdout).strip()
+            return CleanupResult(
+                synced.canonical_checkout,
+                synced.primary_remote,
+                synced.default_branch,
+                synced.implementation_base,
+                "skipped_worktree_removal_failed",
+                detail,
+            )
+
+    if not _local_branch_exists(runner, canonical, request.branch):
+        return CleanupResult(
+            synced.canonical_checkout,
+            synced.primary_remote,
+            synced.default_branch,
+            synced.implementation_base,
+            "skipped_branch_absent",
+            "local outcome branch is already absent",
+        )
+    if (
+        _config(runner, canonical, f"branch.{request.branch}.remote")
+        != synced.primary_remote
+        or _config(runner, canonical, f"branch.{request.branch}.merge")
+        != f"refs/heads/{request.branch}"
+    ):
+        return CleanupResult(
+            synced.canonical_checkout,
+            synced.primary_remote,
+            synced.default_branch,
+            synced.implementation_base,
+            "skipped_unverified_branch",
+            "local branch is not bound to the deleted primary-remote head",
+        )
+    local_head = _git(runner, canonical, "rev-parse", request.branch)
+    if local_head != proof["headRefOid"]:
+        return CleanupResult(
+            synced.canonical_checkout,
+            synced.primary_remote,
+            synced.default_branch,
+            synced.implementation_base,
+            "skipped_diverged_branch",
+            "local outcome branch no longer matches the merged pull request head",
+        )
+
+    graph_merged = _run(
+        runner,
+        [
+            "git",
+            "merge-base",
+            "--is-ancestor",
+            request.branch,
+            synced.default_branch,
+        ],
+        canonical,
+    )
+    if graph_merged.returncode == 0:
+        _git(
+            runner,
+            canonical,
+            "branch",
+            "-d",
+            "--",
+            request.branch,
+            blocker="state_contradiction",
+        )
+        cleanup = "deleted_graph_merged"
+        detail = "deleted graph-merged outcome branch"
+    elif graph_merged.returncode == 1:
+        _git(
+            runner,
+            canonical,
+            "branch",
+            "-D",
+            "--",
+            request.branch,
+            blocker="state_contradiction",
+        )
+        cleanup = "deleted_github_confirmed"
+        detail = "deleted squash/rebase branch using exact merged pull request proof"
+    else:
+        raise GitLifecycleError(
+            "external_state_unavailable", "could not inspect branch ancestry"
+        )
+    return CleanupResult(
+        synced.canonical_checkout,
+        synced.primary_remote,
+        synced.default_branch,
+        synced.implementation_base,
+        cleanup,
+        detail,
+    )

@@ -8,6 +8,7 @@ from typing import Any
 
 try:
     from ..command_support import Context, ScriptError, arg_value, emit, project_root_for, read_json_arg, resolve_under
+    from ..git_lifecycle import CleanupRequest, GitLifecycleError, cleanup_merged_outcome, synchronize_default
     from ..truss_github import GitHubClient, ProjectProjection, load_fixture
     from ..truss_policy import (
         FinalHealth,
@@ -23,6 +24,7 @@ try:
     from ..workspace_isolation import resolve_workspace_isolation
 except ImportError:
     from command_support import Context, ScriptError, arg_value, emit, project_root_for, read_json_arg, resolve_under
+    from git_lifecycle import CleanupRequest, GitLifecycleError, cleanup_merged_outcome, synchronize_default
     from truss_github import GitHubClient, ProjectProjection, load_fixture
     from truss_policy import (
         FinalHealth,
@@ -108,7 +110,23 @@ def command_project_truss(ctx: Context, args: dict[str, Any]) -> int:
         projection, _ = read_json_arg(root, args, "ProjectionJson", "ProjectionPath")
         result = GitHubClient().project_membership(ProjectProjection.from_mapping(projection))
         return emit({"ok": True, "action": action, "source": "live", **result})
+    if action == "Prepare":
+        try:
+            result = synchronize_default(root)
+        except GitLifecycleError as exc:
+            raise ScriptError(f"{exc.blocker}: {exc}") from exc
+        return emit({"ok": True, "action": action, "source": "live", **result.to_dict()})
     repository = str(arg_value(args, "Repository", default=""))
+    if action == "Cleanup":
+        if not repository:
+            raise ScriptError("Repository is required")
+        cleanup, _ = read_json_arg(root, args, "CleanupJson", "CleanupPath")
+        try:
+            request = CleanupRequest.from_mapping(cleanup)
+            result = cleanup_merged_outcome(root, repository, request)
+        except GitLifecycleError as exc:
+            raise ScriptError(f"{exc.blocker}: {exc}") from exc
+        return emit({"ok": True, "action": action, "source": "live", **result.to_dict()})
     issue_value = arg_value(args, "Issue")
     if not repository or issue_value in (None, ""):
         raise ScriptError("Repository and Issue are required")
@@ -117,6 +135,11 @@ def command_project_truss(ctx: Context, args: dict[str, Any]) -> int:
     except (TypeError, ValueError) as exc:
         raise ScriptError("Issue must be a positive integer") from exc
     if action == "Resolve":
+        invocation_cwd = (ctx.invocation_cwd or Path.cwd()).resolve()
+        if invocation_cwd != root.resolve():
+            raise ScriptError(
+                "resolution invocation cwd does not match the task-visible worktree"
+            )
         receipt = _load_resolution(root, args, issue)
         require_recorded_value = str(arg_value(args, "RequireRecorded", default="false")).casefold()
         if require_recorded_value not in {"true", "false"}:
@@ -175,7 +198,9 @@ def command_project_truss(ctx: Context, args: dict[str, Any]) -> int:
             "findings": list(findings),
         }
         return emit(payload, 0 if not findings else 1)
-    raise ScriptError("Action must be Plan, Project, Resolve, Status, or Closeout")
+    raise ScriptError(
+        "Action must be Plan, Prepare, Project, Resolve, Status, Closeout, or Cleanup"
+    )
 
 
 HANDLERS = {

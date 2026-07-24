@@ -13,6 +13,10 @@ Project Truss coordinates durable coding outcomes without replacing engineering 
 - **Internal dependency:** an open blocker included in the same resolution set; it constrains atomic implementation order.
 - **External blocker:** an open blocker outside the selected set; it stops resolution.
 - **Projection:** optional membership in a GitHub Project. Projection is a view, not lifecycle state.
+- **Canonical checkout:** the primary worktree reported by live Git for a repository; synchronization requires it to be clean and on the discovered default branch.
+- **Primary remote:** the one unambiguous remote tracked by the local branch whose name matches that remote's live default branch.
+- **Synchronized implementation base:** the exact default-branch commit shared by the canonical checkout and primary remote after fetch/prune and fast-forward-only synchronization.
+- **Outcome retirement:** authorized removal of only the merged resolution set's clean worktree and branch after exact GitHub and Git proof.
 
 ## Invariants
 
@@ -20,5 +24,7 @@ Project Truss coordinates durable coding outcomes without replacing engineering 
 - Labels, milestones, and Project fields never derive lifecycle state.
 - Multi-leaf selection is explicit.
 - One resolution set has one owner, implementation base, worktree, branch, receipt, and pull request.
+- A resolution set's implementation base is captured only after canonical default synchronization.
+- Outcome retirement never mutates unrelated, active, dirty, diverged, protected, or unverified local state.
 - Partial external mutations fail closed.
 - Root closeout follows verified leaf completion and integrated health.

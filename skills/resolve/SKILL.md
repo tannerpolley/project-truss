@@ -9,13 +9,19 @@ Apply `docs/project-truss/contract.yml`. Resolve is Truss's implementation entry
 
 ## Select and preflight
 
-Default to the addressed leaf. Several or all leaves require an explicit `issues` list; never infer a multi-leaf set. Build one `ResolutionJson` object with sorted issues, owner, full implementation base, branch, worktree identity, and optional pull-request number. Run:
+Default to the addressed leaf. Several or all leaves require an explicit `issues` list; never infer a multi-leaf set.
+
+From the clean canonical checkout, run `scripts/project-truss.sh -Action Prepare -RepoRoot .`. Create the attached feature branch or hidden worktree from the exact returned `implementation_base`, never from an unsynchronized local branch. If native Codex worktree attachment is unavailable, keep the feature branch in the task-attached checkout rather than redirecting commands to an unattached worktree.
+
+After creation, verify that the task-visible checkout, command cwd, current branch, Git toplevel, and recorded worktree all identify the same feature checkout. Build one `ResolutionJson` object with sorted issues, owner, the Prepare implementation base, branch, worktree identity, and optional pull-request number. Run:
 
 ```bash
 scripts/project-truss.sh -Action Resolve -Repository OWNER/REPO -Issue ROOT_OR_LEAF -ResolutionJson JSON
 ```
 
 Every selected leaf must have an executable Matt leaf contract, no competing owner or pull request, and no unresolved external blocker. Open blockers included in the selected set are internal atomic constraints. Any missing member, partial claim, conflicting receipt, stale base, or shared-field mismatch stops as `claim_conflict` or `state_contradiction`.
+
+Prepare fails closed when the canonical checkout is dirty, not on the discovered remote default branch, ahead, diverged, or unable to fast-forward. Do not reset, rebase, auto-stash, discard work, or substitute a guessed default branch or remote.
 
 ## Claim one atomic set
 
