@@ -371,6 +371,7 @@ class ResolutionSetTests(unittest.TestCase):
                 return result, json.loads(result.stdout)
             resolved, resolve_payload = launch("claim", "-Action", "Resolve",
                 "-ResolutionJson", json.dumps(claim.to_dict()), "-RequireRecorded", "true")
+            git("branch", "-m", "main")
             health = {"verification_passed": True, "review_passed": True,
                       "integration_healthy": True, "source_clean": True, "head_sha": "b" * 40}
             closed, close_payload = launch("close", "-Action", "Closeout",
