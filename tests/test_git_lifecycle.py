@@ -296,6 +296,15 @@ class GitLifecycleTests(unittest.TestCase):
                     "cleanup_authorized": True,
                 }
             )
+        with self.assertRaisesRegex(ValueError, "control characters"):
+            CleanupRequest.from_mapping(
+                {
+                    "pull_request": 1,
+                    "branch": "codex/x\u0000",
+                    "worktree": "/repo",
+                    "cleanup_authorized": True,
+                }
+            )
         with self.assertRaisesRegex(ValueError, "absolute path"):
             ResolutionReceipt.from_mapping(
                 {

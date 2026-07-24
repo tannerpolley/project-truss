@@ -41,7 +41,10 @@ class GitSyncResult:
         if any(not isinstance(data[field], str) for field in expected):
             raise ValueError("preparation fields must be strings")
         values = {field: data[field].strip() for field in expected}
-        if not all(values.values()):
+        if not all(values.values()) or any(
+            any(ord(character) < 32 for character in value)
+            for value in values.values()
+        ):
             raise ValueError("preparation fields must be non-empty strings")
         if re.fullmatch(
             r"(?:[0-9a-fA-F]{40}|[0-9a-fA-F]{64})",
@@ -75,6 +78,8 @@ class CleanupRequest:
         worktree = data["worktree"].strip()
         if not branch or not worktree:
             raise ValueError("cleanup branch and worktree are required")
+        if any(ord(character) < 32 for character in branch + worktree):
+            raise ValueError("cleanup branch and worktree contain control characters")
         if not Path(worktree).is_absolute():
             raise ValueError("cleanup worktree must be an absolute path")
         if type(data["cleanup_authorized"]) is not bool:
@@ -131,7 +136,7 @@ def _run(
 ) -> subprocess.CompletedProcess[str]:
     try:
         return runner(command, cwd, timeout)
-    except (OSError, subprocess.TimeoutExpired) as exc:
+    except (OSError, ValueError, subprocess.TimeoutExpired) as exc:
         raise GitLifecycleError("external_state_unavailable", str(exc)) from exc
 
 
@@ -539,6 +544,40 @@ def _branch_has_rules(
     return bool(rules)
 
 
+def _remote_branch_exists(
+    runner: Runner, canonical: Path, remote: str, branch: str
+) -> bool:
+    result = _run(
+        runner,
+        ["git", "ls-remote", "--heads", remote, f"refs/heads/{branch}"],
+        canonical,
+    )
+    if result.returncode:
+        detail = (result.stderr or result.stdout).strip()
+        raise GitLifecycleError("external_state_unavailable", detail)
+    return bool(result.stdout.strip())
+
+
+def _restore_branch(
+    runner: Runner, canonical: Path, branch: str, head: str
+) -> None:
+    restored = _run(
+        runner,
+        [
+            "git",
+            "update-ref",
+            f"refs/heads/{branch}",
+            head,
+            "0" * len(head),
+        ],
+        canonical,
+    )
+    if restored.returncode:
+        raise GitLifecycleError(
+            "state_contradiction", "deleted branch ref could not be restored"
+        )
+
+
 def cleanup_merged_outcome(
     repo_root: Path,
     repository: str,
@@ -568,21 +607,12 @@ def cleanup_merged_outcome(
         return _cleanup_result(
             current, "skipped_unverified_pull_request", unverified
         )
-    remote_head = _run(
+    if _remote_branch_exists(
         runner,
-        [
-            "git",
-            "ls-remote",
-            "--heads",
-            discovered.primary_remote,
-            f"refs/heads/{request.branch}",
-        ],
         discovered.canonical_checkout,
-    )
-    if remote_head.returncode:
-        detail = (remote_head.stderr or remote_head.stdout).strip()
-        raise GitLifecycleError("external_state_unavailable", detail)
-    if remote_head.stdout.strip():
+        discovered.primary_remote,
+        request.branch,
+    ):
         raise GitLifecycleError(
             "state_contradiction",
             "pull request head branch still exists on the primary remote",
@@ -598,23 +628,12 @@ def cleanup_merged_outcome(
             "skipped_unsafe_canonical",
             str(exc),
         )
-    refreshed_remote_head = _run(
+    if _remote_branch_exists(
         runner,
-        [
-            "git",
-            "ls-remote",
-            "--heads",
-            synced.primary_remote,
-            f"refs/heads/{request.branch}",
-        ],
         Path(synced.canonical_checkout),
-    )
-    if refreshed_remote_head.returncode:
-        detail = (
-            refreshed_remote_head.stderr or refreshed_remote_head.stdout
-        ).strip()
-        raise GitLifecycleError("external_state_unavailable", detail)
-    if refreshed_remote_head.stdout.strip():
+        synced.primary_remote,
+        request.branch,
+    ):
         return _cleanup_result(
             synced,
             "skipped_remote_branch_recreated",
@@ -723,6 +742,25 @@ def cleanup_merged_outcome(
         raise GitLifecycleError(
             "external_state_unavailable", "could not inspect branch ancestry"
         )
+    final_worktrees = _worktrees(runner, root)
+    final_checked_out = next(
+        (worktree for worktree in final_worktrees if worktree.branch == request.branch),
+        None,
+    )
+    if final_checked_out != checked_out:
+        return _cleanup_result(
+            synced,
+            "skipped_checked_out_worktree",
+            "outcome branch worktree occupancy changed during cleanup",
+        )
+    if _remote_branch_exists(
+        runner, canonical, synced.primary_remote, request.branch
+    ):
+        return _cleanup_result(
+            synced,
+            "skipped_remote_branch_recreated",
+            "pull request head branch was recreated before deletion",
+        )
     deleted = _run(
         runner,
         [
@@ -740,6 +778,30 @@ def cleanup_merged_outcome(
             "skipped_diverged_branch",
             "outcome branch moved during compare-and-delete",
         )
+    if _remote_branch_exists(
+        runner, canonical, synced.primary_remote, request.branch
+    ):
+        _restore_branch(runner, canonical, request.branch, local_head)
+        return _cleanup_result(
+            synced,
+            "skipped_remote_branch_recreated",
+            "pull request head branch was recreated during deletion",
+        )
+    after_delete_worktree = next(
+        (
+            worktree
+            for worktree in _worktrees(runner, root)
+            if worktree.branch == request.branch
+        ),
+        None,
+    )
+    if after_delete_worktree != checked_out:
+        _restore_branch(runner, canonical, request.branch, local_head)
+        return _cleanup_result(
+            synced,
+            "skipped_checked_out_worktree",
+            "outcome branch worktree occupancy changed during deletion",
+        )
     if checked_out is not None:
         removal = _run(
             runner,
@@ -747,43 +809,20 @@ def cleanup_merged_outcome(
             canonical,
         )
         if removal.returncode:
-            restored = _run(
-                runner,
-                [
-                    "git",
-                    "update-ref",
-                    f"refs/heads/{request.branch}",
-                    local_head,
-                    "0" * len(local_head),
-                ],
-                canonical,
-            )
-            if restored.returncode:
-                raise GitLifecycleError(
-                    "state_contradiction",
-                    "worktree removal failed and branch ref could not be restored",
-                )
+            _restore_branch(runner, canonical, request.branch, local_head)
             detail = (removal.stderr or removal.stdout).strip()
             return _cleanup_result(
                 synced, "skipped_worktree_removal_failed", detail
             )
-    removed_config = _run(
-        runner,
-        ["git", "config", "--remove-section", f"branch.{request.branch}"],
-        canonical,
-    )
-    if removed_config.returncode:
-        return _cleanup_result(
-            synced,
-            "deleted_branch_config_retained",
-            "branch ref was deleted but its local tracking config remains",
-        )
     if graph_merged.returncode == 0:
         return _cleanup_result(
-            synced, "deleted_graph_merged", "deleted graph-merged outcome branch"
+            synced,
+            "deleted_graph_merged",
+            "deleted graph-merged outcome branch; retained inert tracking config",
         )
     return _cleanup_result(
         synced,
         "deleted_github_confirmed",
-        "deleted squash/rebase branch using exact merged pull request proof",
+        "deleted squash/rebase branch using exact merged pull request proof; "
+        "retained inert tracking config",
     )
