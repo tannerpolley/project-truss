@@ -13,6 +13,18 @@ Project Truss is a Matt-first coordination layer for coding outcomes that need d
 
 Before governed work, Start verifies the repository's Matt setup and required skill capabilities. Missing capability is `method_capability_missing`. Direct work is not blocked.
 
+## Git synchronization
+
+Resolve prepares its implementation base from live Git state before creating a branch or worktree:
+
+```bash
+scripts/project-truss.sh -Action Prepare -RepoRoot .
+```
+
+Prepare parses current worktrees and tracking configuration to identify the canonical checkout, primary remote, and remote default branch without assuming `origin` or `main`. It requires the canonical checkout to be clean and on that default branch, fetches only the primary remote with pruning, performs a fast-forward-only merge, and requires the local and remote-tracking heads to match. The returned full `implementation_base` is captured only after synchronization.
+
+Dirty, detached, non-default, ahead, diverged, ambiguous, untracked, or unavailable state fails with a canonical blocker. Prepare never resets, rebases, stashes, discards, or silently chooses a fallback. The feature branch/worktree must be created from the returned base. Initial Resolve receives that exact object as `PreparationJson`, revalidates its local-default and remote-tracking refs, and verifies that the invocation cwd, current branch, Git toplevel, and absolute receipt worktree agree.
+
 ## Issue contracts
 
 Root specifications use:
@@ -61,3 +73,16 @@ scripts/project-truss.sh -Action Project -ProjectionJson '{"owner":"OWNER","proj
 ## Closeout
 
 Close reviews Standards once over the shared diff and Spec once per selected leaf. It requires matching receipts, checked acceptance, one shared PR/head, successful completed CI, clear review state, healthy integration, and clean source state. After merge, every selected leaf must derive Done before the root or milestone closes.
+
+After GitHub confirms the pull request merged and its remote head branch is deleted, Close returns to the clean canonical default checkout and runs:
+
+```bash
+scripts/project-truss.sh -Action Cleanup -RepoRoot . -Repository OWNER/REPO \
+  -CleanupJson '{"pull_request":123,"branch":"codex/issue-123","worktree":"/absolute/outcome-worktree","cleanup_authorized":true}'
+```
+
+Cleanup fetches/prunes and fast-forwards the discovered default branch again before retirement. Cleanup authority is explicit. It removes only the recorded clean outcome worktree and branch; current branches, protected defaults, ruleset-governed branches, worktree-active branches, dirty worktrees, mismatched heads, non-primary-remote branches, and unverified state are skipped with a reason. Graph-merged branches use ancestry-checked compare-and-delete. Squash/rebase branches use the same expected-head guard only after the exact GitHub PR is confirmed merged, the remote head is absent, and the local head matches the merged PR head.
+
+The generic Git skill may use `git sync --delete` or `git clean-gone --delete --no-fetch` for authorized repository-wide cleanup. Project Truss intentionally uses a narrower exact-outcome equivalent so it cannot retire unrelated branches. If required Git or GitHub evidence is unavailable, Cleanup fails loudly.
+
+Git 2.43 has no native `post-fetch` hook, so Project Truss does not install one. A `post-merge` hook is also incomplete because it observes local merge/pull paths, not a remote GitHub PR merge. Explicit Prepare and Cleanup lifecycle actions are the authoritative synchronization points; no hook or second lifecycle database is added.
