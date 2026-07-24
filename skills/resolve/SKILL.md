@@ -13,10 +13,11 @@ Default to the addressed leaf. Several or all leaves require an explicit `issues
 
 From the clean canonical checkout, run `scripts/project-truss.sh -Action Prepare -RepoRoot .`. Create the attached feature branch or hidden worktree from the exact returned `implementation_base`, never from an unsynchronized local branch. If native Codex worktree attachment is unavailable, keep the feature branch in the task-attached checkout rather than redirecting commands to an unattached worktree.
 
-After creation, verify that the task-visible checkout, command cwd, current branch, Git toplevel, and recorded worktree all identify the same feature checkout. Build one `ResolutionJson` object with sorted issues, owner, the Prepare implementation base, branch, worktree identity, and optional pull-request number. Run:
+After creation, verify that the task-visible checkout, command cwd, current branch, Git toplevel, and recorded worktree all identify the same feature checkout. Preserve the exact Prepare JSON as `PreparationJson`, and build one `ResolutionJson` object with sorted issues, owner, the Prepare implementation base, branch, absolute worktree identity, and optional pull-request number. Initial preflight revalidates the preparation against live local/default and remote-tracking refs. Run:
 
 ```bash
-scripts/project-truss.sh -Action Resolve -Repository OWNER/REPO -Issue ROOT_OR_LEAF -ResolutionJson JSON
+scripts/project-truss.sh -Action Resolve -Repository OWNER/REPO -Issue ROOT_OR_LEAF \
+  -PreparationJson PREPARE_JSON -ResolutionJson RESOLUTION_JSON
 ```
 
 Every selected leaf must have an executable Matt leaf contract, no competing owner or pull request, and no unresolved external blocker. Open blockers included in the selected set are internal atomic constraints. Any missing member, partial claim, conflicting receipt, stale base, or shared-field mismatch stops as `claim_conflict` or `state_contradiction`.

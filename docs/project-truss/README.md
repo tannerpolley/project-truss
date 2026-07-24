@@ -23,7 +23,7 @@ scripts/project-truss.sh -Action Prepare -RepoRoot .
 
 Prepare parses current worktrees and tracking configuration to identify the canonical checkout, primary remote, and remote default branch without assuming `origin` or `main`. It requires the canonical checkout to be clean and on that default branch, fetches only the primary remote with pruning, performs a fast-forward-only merge, and requires the local and remote-tracking heads to match. The returned full `implementation_base` is captured only after synchronization.
 
-Dirty, detached, non-default, ahead, diverged, ambiguous, untracked, or unavailable state fails with a canonical blocker. Prepare never resets, rebases, stashes, discards, or silently chooses a fallback. The feature branch/worktree must be created from the returned base, and Resolve then verifies that the invocation cwd, current branch, Git toplevel, and receipt worktree agree.
+Dirty, detached, non-default, ahead, diverged, ambiguous, untracked, or unavailable state fails with a canonical blocker. Prepare never resets, rebases, stashes, discards, or silently chooses a fallback. The feature branch/worktree must be created from the returned base. Initial Resolve receives that exact object as `PreparationJson`, revalidates its local-default and remote-tracking refs, and verifies that the invocation cwd, current branch, Git toplevel, and absolute receipt worktree agree.
 
 ## Issue contracts
 

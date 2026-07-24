@@ -242,8 +242,17 @@ class ResolutionSetTests(unittest.TestCase):
                 "scripts.lib.commands.project._validate_implementation_base"
             ), patch(
                 "scripts.lib.commands.project._validate_resolution_workspace"
+            ), patch(
+                "scripts.lib.commands.project.validate_preparation"
             ), redirect_stdout(output):
                 github.return_value.snapshot.side_effect = lambda repository, number: snapshot(number)
+                preparation = {
+                    "canonical_checkout": str(ROOT),
+                    "primary_remote": "origin",
+                    "default_branch": "main",
+                    "remote_ref": "refs/remotes/origin/main",
+                    "implementation_base": payload["implementation_base"],
+                }
                 code = command_project_truss(
                     context,
                     {
@@ -251,6 +260,7 @@ class ResolutionSetTests(unittest.TestCase):
                         "Repository": "tannerpolley/project-truss",
                         "Issue": issue,
                         "ResolutionJson": json.dumps(payload),
+                        "PreparationJson": json.dumps(preparation),
                     },
                 )
             return code, json.loads(output.getvalue())
@@ -259,7 +269,7 @@ class ResolutionSetTests(unittest.TestCase):
             "owner": "tannerpolley",
             "implementation_base": "a" * 40,
             "branch": "codex/issue-10",
-            "worktree": "issue-10",
+            "worktree": str(ROOT),
         }
         singleton_code, singleton = resolve(shared)
         self.assertEqual((0, [9], True), (singleton_code, singleton["issues"], singleton["eligible"]))
@@ -280,7 +290,14 @@ class ResolutionSetTests(unittest.TestCase):
             "owner": "tannerpolley",
             "implementation_base": "a" * 40,
             "branch": "codex/issue-10",
-            "worktree": "issue-10",
+            "worktree": str(ROOT),
+        }
+        preparation = {
+            "canonical_checkout": str(ROOT),
+            "primary_remote": "origin",
+            "default_branch": "main",
+            "remote_ref": "refs/remotes/origin/main",
+            "implementation_base": "a" * 40,
         }
         with patch(
             "scripts.lib.commands.project._validate_implementation_base",
@@ -293,13 +310,17 @@ class ResolutionSetTests(unittest.TestCase):
                     "Repository": "tannerpolley/project-truss",
                     "Issue": 9,
                     "ResolutionJson": json.dumps(payload),
+                    "PreparationJson": json.dumps(preparation),
                 },
             )
-        with patch("scripts.lib.commands.project._validate_implementation_base"):
+        with patch("scripts.lib.commands.project._validate_implementation_base"), patch(
+            "scripts.lib.commands.project.validate_preparation"
+        ):
             with self.assertRaisesRegex(ScriptError, "branch does not match"):
                 command_project_truss(context, {
                     "Action": "Resolve", "Repository": "tannerpolley/project-truss",
                     "Issue": 9, "ResolutionJson": json.dumps(payload),
+                    "PreparationJson": json.dumps(preparation),
                 })
 
     def test_resolution_launchers_assemble_git_provider_and_policy_boundaries(self):
@@ -318,7 +339,7 @@ class ResolutionSetTests(unittest.TestCase):
             base = git("rev-parse", "HEAD")
             shared = {"issues": [9, 11], "owner": "tannerpolley",
                       "implementation_base": base, "branch": "codex/issue-10",
-                      "worktree": project.name}
+                      "worktree": str(project.resolve())}
             claim = ResolutionReceipt.from_mapping(shared)
             close = ResolutionReceipt.from_mapping({**shared, "pull_request": 12})
             payloads = {

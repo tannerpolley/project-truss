@@ -8,7 +8,10 @@ from typing import Any
 
 try:
     from ..command_support import Context, ScriptError, arg_value, emit, project_root_for, read_json_arg, resolve_under
-    from ..git_lifecycle import CleanupRequest, GitLifecycleError, cleanup_merged_outcome, synchronize_default
+    from ..git_lifecycle import (
+        CleanupRequest, GitLifecycleError, GitSyncResult, cleanup_merged_outcome,
+        synchronize_default, validate_preparation,
+    )
     from ..truss_github import GitHubClient, ProjectProjection, load_fixture
     from ..truss_policy import (
         FinalHealth,
@@ -24,7 +27,10 @@ try:
     from ..workspace_isolation import resolve_workspace_isolation
 except ImportError:
     from command_support import Context, ScriptError, arg_value, emit, project_root_for, read_json_arg, resolve_under
-    from git_lifecycle import CleanupRequest, GitLifecycleError, cleanup_merged_outcome, synchronize_default
+    from git_lifecycle import (
+        CleanupRequest, GitLifecycleError, GitSyncResult, cleanup_merged_outcome,
+        synchronize_default, validate_preparation,
+    )
     from truss_github import GitHubClient, ProjectProjection, load_fixture
     from truss_policy import (
         FinalHealth,
@@ -69,7 +75,7 @@ def _validate_resolution_workspace(root: Path, receipt: ResolutionReceipt) -> No
     worktree = Path(top.stdout.strip()).resolve()
     if branch.stdout.strip() != receipt.branch:
         raise ScriptError("resolution branch does not match the current branch")
-    if receipt.worktree not in {worktree.name, str(worktree)}:
+    if Path(receipt.worktree).resolve() != worktree:
         raise ScriptError("resolution worktree does not match the current worktree")
 
 
@@ -86,6 +92,23 @@ def _load_resolution(root: Path, args: dict[str, Any], issue: int) -> Resolution
     _validate_implementation_base(root, receipt.implementation_base)
     _validate_resolution_workspace(root, receipt)
     return receipt
+
+
+def _validate_prepared_resolution(
+    root: Path, args: dict[str, Any], receipt: ResolutionReceipt
+) -> None:
+    preparation, _ = read_json_arg(
+        root, args, "PreparationJson", "PreparationPath"
+    )
+    prepared = GitSyncResult.from_mapping(preparation)
+    if prepared.implementation_base != receipt.implementation_base:
+        raise ScriptError(
+            "Preparation implementation base conflicts with the resolution receipt"
+        )
+    try:
+        validate_preparation(prepared)
+    except GitLifecycleError as exc:
+        raise ScriptError(f"{exc.blocker}: {exc}") from exc
 
 
 def command_workspace_isolation(ctx: Context, args: dict[str, Any]) -> int:
@@ -140,10 +163,12 @@ def command_project_truss(ctx: Context, args: dict[str, Any]) -> int:
             raise ScriptError(
                 "resolution invocation cwd does not match the task-visible worktree"
             )
-        receipt = _load_resolution(root, args, issue)
         require_recorded_value = str(arg_value(args, "RequireRecorded", default="false")).casefold()
         if require_recorded_value not in {"true", "false"}:
             raise ScriptError("RequireRecorded must be true or false")
+        receipt = _load_resolution(root, args, issue)
+        if require_recorded_value == "false":
+            _validate_prepared_resolution(root, args, receipt)
         github = GitHubClient()
         snapshots = [github.snapshot(repository, number) for number in receipt.issues]
         result = plan_resolution(
