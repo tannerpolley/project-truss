@@ -333,6 +333,8 @@ class ResolutionReceipt:
         worktree = str(values.get("worktree") or "").strip()
         if not all((owner, branch, worktree)):
             raise ValueError("owner, branch, and worktree are required")
+        if not Path(worktree).is_absolute():
+            raise ValueError("worktree must be an absolute path")
         if re.fullmatch(r"[0-9a-fA-F]{40}|[0-9a-fA-F]{64}", implementation_base) is None:
             raise ValueError("implementation_base must be a full Git commit hash")
         pull_request = values.get("pull_request")

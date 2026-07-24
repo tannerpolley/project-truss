@@ -18,7 +18,9 @@ from scripts.lib.git_lifecycle import (
     GitSyncResult,
     cleanup_merged_outcome,
     synchronize_default,
+    validate_preparation,
 )
+from scripts.lib.truss_policy import ResolutionReceipt
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -248,6 +250,37 @@ class GitLifecycleTests(unittest.TestCase):
                 },
             )
 
+    def test_git_lifecycle_inputs_are_strict_and_worktrees_are_absolute(self):
+        preparation = {
+            "canonical_checkout": "/repo",
+            "primary_remote": "origin",
+            "default_branch": "main",
+            "remote_ref": "refs/remotes/origin/main",
+            "implementation_base": "a" * 64,
+        }
+        self.assertEqual("a" * 64, GitSyncResult.from_mapping(preparation).implementation_base)
+        with self.assertRaisesRegex(ValueError, "must be strings"):
+            GitSyncResult.from_mapping({**preparation, "primary_remote": None})
+        with self.assertRaisesRegex(ValueError, "must be strings"):
+            CleanupRequest.from_mapping(
+                {
+                    "pull_request": 1,
+                    "branch": ["codex/x"],
+                    "worktree": "/repo",
+                    "cleanup_authorized": True,
+                }
+            )
+        with self.assertRaisesRegex(ValueError, "absolute path"):
+            ResolutionReceipt.from_mapping(
+                {
+                    "issues": [17],
+                    "owner": "tannerpolley",
+                    "implementation_base": "a" * 40,
+                    "branch": "codex/x",
+                    "worktree": ".",
+                }
+            )
+
     def test_runtime_surfaces_publish_prepare_cleanup_and_hook_boundaries(self):
         start = (ROOT / "skills/start/SKILL.md").read_text(encoding="utf-8")
         resolve = (ROOT / "skills/resolve/SKILL.md").read_text(encoding="utf-8")
@@ -284,6 +317,25 @@ class GitLifecycleTests(unittest.TestCase):
 
             self.assertEqual(original, result.implementation_base)
             self.assertEqual(original, fixture.git(fixture.repo, "rev-parse", "HEAD"))
+
+    def test_prepare_prunes_deleted_refs_and_stale_preparation_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            fixture = GitRepositoryFixture(Path(directory))
+            branch = "codex/pruned"
+            fixture.create_remote_branch(branch)
+            fixture.git(fixture.repo, "fetch", "origin")
+            fixture.delete_remote_branch(branch)
+            result = synchronize_default(fixture.repo)
+            self.assertEqual(
+                "",
+                fixture.git(
+                    fixture.repo, "branch", "-r", "--list", f"origin/{branch}"
+                ),
+            )
+            fixture.advance_remote("new remote\n")
+            fixture.git(fixture.repo, "fetch", "origin")
+            with self.assertRaisesRegex(GitLifecycleError, "base is stale"):
+                validate_preparation(result)
 
     def test_dirty_and_diverged_canonical_checkouts_are_blocked(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -495,6 +547,37 @@ class GitLifecycleTests(unittest.TestCase):
                 branch,
                 fixture.git(fixture.repo, "branch", "--list", branch).lstrip("* "),
             )
+
+    def test_missing_recorded_worktree_and_head_oid_mismatch_are_skipped(self):
+        for expected, worktree, oid in (
+            ("skipped_worktree_absent", "/missing/worktree", None),
+            ("skipped_diverged_branch", None, "f" * 40),
+        ):
+            with self.subTest(expected=expected), tempfile.TemporaryDirectory() as directory:
+                fixture = GitRepositoryFixture(Path(directory))
+                branch = f"codex/{expected}"
+                head = fixture.create_remote_branch(branch)
+                fixture.delete_remote_branch(branch)
+                runner = FakeGitHubRunner(
+                    {
+                        "number": 56,
+                        "state": "MERGED",
+                        "mergedAt": "2026-07-24T00:00:00Z",
+                        "headRefName": branch,
+                        "headRefOid": oid or head,
+                        "baseRefName": fixture.default_branch,
+                        "url": "https://github.example/pull/56",
+                    }
+                )
+                result = cleanup_merged_outcome(
+                    fixture.repo,
+                    "owner/repo",
+                    CleanupRequest(
+                        56, branch, worktree or str(fixture.repo), True
+                    ),
+                    runner=runner,
+                )
+                self.assertEqual(expected, result.cleanup)
 
     def test_prepare_blocks_ahead_detached_ambiguous_and_noncanonical_checkouts(self):
         with tempfile.TemporaryDirectory() as directory:

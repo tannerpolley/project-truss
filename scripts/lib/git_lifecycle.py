@@ -38,10 +38,15 @@ class GitSyncResult:
                 "preparation requires exactly canonical_checkout, primary_remote, "
                 "default_branch, remote_ref, and implementation_base"
             )
-        values = {field: str(data[field]).strip() for field in expected}
+        if any(not isinstance(data[field], str) for field in expected):
+            raise ValueError("preparation fields must be strings")
+        values = {field: data[field].strip() for field in expected}
         if not all(values.values()):
             raise ValueError("preparation fields must be non-empty strings")
-        if re.fullmatch(r"[0-9a-fA-F]{40}", values["implementation_base"]) is None:
+        if re.fullmatch(
+            r"(?:[0-9a-fA-F]{40}|[0-9a-fA-F]{64})",
+            values["implementation_base"],
+        ) is None:
             raise ValueError("preparation implementation_base must be a full Git commit")
         return cls(**values)
 
@@ -62,8 +67,12 @@ class CleanupRequest:
             )
         if type(data["pull_request"]) is not int or data["pull_request"] < 1:
             raise ValueError("cleanup pull_request must be a positive integer")
-        branch = str(data["branch"]).strip()
-        worktree = str(data["worktree"]).strip()
+        if not isinstance(data["branch"], str) or not isinstance(
+            data["worktree"], str
+        ):
+            raise ValueError("cleanup branch and worktree must be strings")
+        branch = data["branch"].strip()
+        worktree = data["worktree"].strip()
         if not branch or not worktree:
             raise ValueError("cleanup branch and worktree are required")
         if type(data["cleanup_authorized"]) is not bool:
@@ -648,6 +657,22 @@ def cleanup_merged_outcome(
             return _cleanup_result(
                 synced, "skipped_worktree_removal_failed", detail
             )
+    remote_config = _config(
+        runner, canonical, f"branch.{request.branch}.remote"
+    )
+    merge_config = _config(
+        runner, canonical, f"branch.{request.branch}.merge"
+    )
+    removed_config = _run(
+        runner,
+        ["git", "config", "--remove-section", f"branch.{request.branch}"],
+        canonical,
+    )
+    if removed_config.returncode:
+        raise GitLifecycleError(
+            "state_contradiction",
+            "could not remove outcome branch configuration before deletion",
+        )
     deleted = _run(
         runner,
         [
@@ -660,16 +685,36 @@ def cleanup_merged_outcome(
         canonical,
     )
     if deleted.returncode:
+        restore_remote = _run(
+            runner,
+            [
+                "git",
+                "config",
+                f"branch.{request.branch}.remote",
+                remote_config,
+            ],
+            canonical,
+        )
+        restore_merge = _run(
+            runner,
+            [
+                "git",
+                "config",
+                f"branch.{request.branch}.merge",
+                merge_config,
+            ],
+            canonical,
+        )
+        if restore_remote.returncode or restore_merge.returncode:
+            raise GitLifecycleError(
+                "state_contradiction",
+                "branch moved and its tracking configuration could not be restored",
+            )
         return _cleanup_result(
             synced,
             "skipped_diverged_branch",
             "outcome branch moved during compare-and-delete",
         )
-    _run(
-        runner,
-        ["git", "config", "--remove-section", f"branch.{request.branch}"],
-        canonical,
-    )
     if graph_merged.returncode == 0:
         return _cleanup_result(
             synced, "deleted_graph_merged", "deleted graph-merged outcome branch"

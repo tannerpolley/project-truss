@@ -131,7 +131,7 @@ class ResolutionSetTests(unittest.TestCase):
                 "owner": "tannerpolley",
                 "implementation_base": "a" * 40,
                 "branch": "codex/issue-10",
-                "worktree": "issue-10",
+                "worktree": "/tmp/issue-10",
             }
         )
         internal = plan_resolution(
@@ -157,7 +157,7 @@ class ResolutionSetTests(unittest.TestCase):
                 "owner": "tannerpolley",
                 "implementation_base": "a" * 40,
                 "branch": "codex/issue-10",
-                "worktree": "issue-10",
+                "worktree": "/tmp/issue-10",
             }
         )
 
@@ -387,7 +387,7 @@ class ResolutionSetTests(unittest.TestCase):
                 "owner": "tannerpolley",
                 "implementation_base": "a" * 40,
                 "branch": "codex/issue-10",
-                "worktree": "issue-10",
+                "worktree": "/tmp/issue-10",
                 "pull_request": 12,
             }
         )
