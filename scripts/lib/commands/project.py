@@ -79,7 +79,13 @@ def _validate_resolution_workspace(root: Path, receipt: ResolutionReceipt) -> No
         raise ScriptError("resolution worktree does not match the current worktree")
 
 
-def _load_resolution(root: Path, args: dict[str, Any], issue: int) -> ResolutionReceipt:
+def _load_resolution(
+    root: Path,
+    args: dict[str, Any],
+    issue: int,
+    *,
+    require_active_workspace: bool = True,
+) -> ResolutionReceipt:
     resolution, _ = read_json_arg(root, args, "ResolutionJson", "ResolutionPath")
     if not isinstance(resolution, dict):
         raise ValueError("resolution must be a JSON object")
@@ -90,7 +96,8 @@ def _load_resolution(root: Path, args: dict[str, Any], issue: int) -> Resolution
     if supplied and supplied != receipt.implementation_base:
         raise ScriptError("ImplementationBase conflicts with the resolution receipt")
     _validate_implementation_base(root, receipt.implementation_base)
-    _validate_resolution_workspace(root, receipt)
+    if require_active_workspace:
+        _validate_resolution_workspace(root, receipt)
     return receipt
 
 
@@ -204,7 +211,9 @@ def command_project_truss(ctx: Context, args: dict[str, Any]) -> int:
             raise ScriptError("Closeout does not accept SnapshotPath")
         resolution_supplied = arg_value(args, "ResolutionJson") or arg_value(args, "ResolutionPath")
         if resolution_supplied:
-            receipt = _load_resolution(root, args, issue)
+            receipt = _load_resolution(
+                root, args, issue, require_active_workspace=False
+            )
             health, _ = read_json_arg(root, args, "HealthJson", "HealthPath")
             github = GitHubClient()
             snapshots = [github.snapshot(repository, number) for number in receipt.issues]
