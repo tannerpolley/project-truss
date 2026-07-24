@@ -7,6 +7,7 @@ from pathlib import Path
 import re
 import subprocess
 from typing import Any, Callable, Mapping
+from urllib.parse import quote
 
 
 Runner = Callable[[list[str], Path, int], subprocess.CompletedProcess[str]]
@@ -172,6 +173,12 @@ def _remote_default(runner: Runner, root: Path, remote: str) -> str | None:
     return match.group(1) if match else None
 
 
+def _common_dir(runner: Runner, root: Path) -> Path:
+    return Path(
+        _git(runner, root, "rev-parse", "--path-format=absolute", "--git-common-dir")
+    ).resolve()
+
+
 def _discover(root: Path, runner: Runner) -> _Repository:
     canonical = _worktrees(runner, root)[0].path
     candidates: list[tuple[str, str]] = []
@@ -248,11 +255,16 @@ def synchronize_default(
 
 def validate_preparation(
     preparation: GitSyncResult,
+    repo_root: Path,
     *,
     active_branch: str | None = None,
     runner: Runner = _default_runner,
 ) -> None:
     canonical = Path(preparation.canonical_checkout).resolve()
+    if _common_dir(runner, repo_root.resolve()) != _common_dir(runner, canonical):
+        raise GitLifecycleError(
+            "state_contradiction", "preparation belongs to a different repository"
+        )
     repository = _discover(canonical, runner)
     if (
         repository.canonical != canonical
@@ -338,6 +350,25 @@ def _remote_branch_exists(
     return bool(result.stdout.strip())
 
 
+def _branch_has_rules(
+    runner: Runner, root: Path, repository: str, branch: str
+) -> bool:
+    output = _checked(
+        runner,
+        root,
+        "gh",
+        "api",
+        f"repos/{repository}/rules/branches/{quote(branch, safe='')}",
+    )
+    try:
+        rules = json.loads(output)
+    except (TypeError, ValueError) as exc:
+        raise GitLifecycleError("external_state_unavailable", "invalid branch rules JSON") from exc
+    if not isinstance(rules, list):
+        raise GitLifecycleError("github_capability_missing", "branch rules proof is incomplete")
+    return bool(rules)
+
+
 def _result(sync: GitSyncResult, cleanup: str, detail: str) -> CleanupResult:
     return CleanupResult(
         sync.canonical_checkout,
@@ -398,8 +429,10 @@ def cleanup_merged_outcome(
             "skipped_non_github_remote",
             "primary remote does not match the GitHub merge proof",
         )
-    if request.branch == sync.default_branch:
-        return _result(sync, "skipped_protected_branch", "default branch is protected")
+    if request.branch == sync.default_branch or _branch_has_rules(
+        runner, canonical, repository, request.branch
+    ):
+        return _result(sync, "skipped_protected_branch", "branch is protected")
     if _remote_branch_exists(runner, canonical, sync.primary_remote, request.branch):
         return _result(sync, "skipped_remote_branch_recreated", "remote branch was recreated")
 
@@ -435,13 +468,6 @@ def cleanup_merged_outcome(
             return _result(
                 sync, "skipped_dirty_worktree", f"worktree is dirty: {checked_out.path}"
             )
-        removal = _run(runner, canonical, "git", "worktree", "remove", str(checked_out.path))
-        if removal.returncode:
-            return _result(
-                sync,
-                "skipped_worktree_removal_failed",
-                (removal.stderr or removal.stdout).strip(),
-            )
     elif recorded != canonical:
         return _result(sync, "skipped_worktree_absent", "recorded outcome worktree is absent")
 
@@ -456,14 +482,62 @@ def cleanup_merged_outcome(
     )
     if graph_merged.returncode not in {0, 1}:
         raise GitLifecycleError("external_state_unavailable", "could not inspect ancestry")
-    if graph_merged.returncode == 0:
-        deleted = _run(runner, canonical, "git", "branch", "-d", request.branch)
-        cleanup = "deleted_graph_merged"
-    else:
-        deleted = _run(runner, canonical, "git", "update-ref", "-d", branch_ref, local_head)
-        cleanup = "deleted_github_confirmed"
+    if checked_out:
+        detached = _run(
+            runner,
+            checked_out.path,
+            "git",
+            "switch",
+            "--detach",
+            local_head,
+        )
+        if detached.returncode:
+            return _result(
+                sync,
+                "skipped_worktree_detach_failed",
+                (detached.stderr or detached.stdout).strip(),
+            )
+    deleted = _run(runner, canonical, "git", "update-ref", "-d", branch_ref, local_head)
     if deleted.returncode:
+        if checked_out and _run(
+            runner, checked_out.path, "git", "switch", request.branch
+        ).returncode:
+            raise GitLifecycleError(
+                "state_contradiction", "worktree could not be reattached after cleanup conflict"
+            )
         return _result(
             sync, "skipped_diverged_branch", "branch moved or could not be safely deleted"
         )
+    if checked_out:
+        removal = _run(runner, canonical, "git", "worktree", "remove", str(checked_out.path))
+        if removal.returncode:
+            restored = _run(
+                runner,
+                canonical,
+                "git",
+                "update-ref",
+                branch_ref,
+                local_head,
+                "0" * len(local_head),
+            )
+            if restored.returncode:
+                raise GitLifecycleError(
+                    "state_contradiction", "branch could not be restored after cleanup failure"
+                )
+            if _run(
+                runner, checked_out.path, "git", "switch", request.branch
+            ).returncode:
+                raise GitLifecycleError(
+                    "state_contradiction", "worktree could not be reattached after cleanup failure"
+                )
+            return _result(
+                sync,
+                "skipped_worktree_removal_failed",
+                (removal.stderr or removal.stdout).strip(),
+            )
+    cleanup = (
+        "deleted_graph_merged"
+        if graph_merged.returncode == 0
+        else "deleted_github_confirmed"
+    )
     return _result(sync, cleanup, "deleted the verified merged outcome")

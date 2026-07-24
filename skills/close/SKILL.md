@@ -33,7 +33,7 @@ scripts/project-truss.sh -Action Cleanup -RepoRoot . -Repository OWNER/REPO \
   -CleanupJson '{"pull_request":123,"branch":"codex/issue-123","worktree":"/absolute/outcome-worktree","cleanup_authorized":true}'
 ```
 
-Cleanup re-discovers the primary remote and default branch, verifies the exact merged pull request and deleted remote head, fetches with pruning, and fast-forwards the canonical default branch before local retirement. It removes only the recorded clean outcome worktree and branch. A graph-merged branch uses normal deletion; a squash/rebase branch uses force deletion only when its local head exactly matches the confirmed merged pull-request head.
+Cleanup re-discovers the primary remote and default branch, verifies the exact merged pull request and deleted remote head, fetches with pruning, and fast-forwards the canonical default branch before local retirement. It removes only the recorded clean outcome worktree and branch. Graph-merged and squash/rebase branches use expected-head compare-and-delete; non-graph deletion additionally requires the exact confirmed merged pull-request head.
 
 Without local cleanup authority, pass `cleanup_authorized:false`; synchronization still occurs and retirement reports `skipped_not_authorized`. Current, protected-default, active elsewhere, dirty, diverged, manually deleted, non-GitHub, or otherwise unverified state remains untouched with a reason. Never replace this with an unguarded `git branch -D` loop. `git sync --delete` and `git clean-gone --delete --no-fetch` remain useful generic Git-skill helpers, but Truss uses the narrower exact-outcome equivalent so unrelated stale branches are outside its authority.
 

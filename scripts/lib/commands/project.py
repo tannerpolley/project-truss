@@ -106,7 +106,7 @@ def _validate_prepared_resolution(
             "Preparation implementation base conflicts with the resolution receipt"
         )
     try:
-        validate_preparation(prepared, active_branch=receipt.branch)
+        validate_preparation(prepared, root, active_branch=receipt.branch)
     except GitLifecycleError as exc:
         raise ScriptError(f"{exc.blocker}: {exc}") from exc
 
