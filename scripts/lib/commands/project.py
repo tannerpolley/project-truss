@@ -106,9 +106,17 @@ def _validate_prepared_resolution(
             "Preparation implementation base conflicts with the resolution receipt"
         )
     try:
-        validate_preparation(prepared)
+        validate_preparation(prepared, active_branch=receipt.branch)
     except GitLifecycleError as exc:
         raise ScriptError(f"{exc.blocker}: {exc}") from exc
+
+
+def _require_attached_cwd(ctx: Context, root: Path, action: str) -> None:
+    invocation_cwd = (ctx.invocation_cwd or Path.cwd()).resolve()
+    if invocation_cwd != root.resolve():
+        raise ScriptError(
+            f"{action} invocation cwd does not match the task-visible worktree"
+        )
 
 
 def command_workspace_isolation(ctx: Context, args: dict[str, Any]) -> int:
@@ -134,6 +142,7 @@ def command_project_truss(ctx: Context, args: dict[str, Any]) -> int:
         result = GitHubClient().project_membership(ProjectProjection.from_mapping(projection))
         return emit({"ok": True, "action": action, "source": "live", **result})
     if action == "Prepare":
+        _require_attached_cwd(ctx, root, action)
         try:
             result = synchronize_default(root)
         except GitLifecycleError as exc:
@@ -141,6 +150,7 @@ def command_project_truss(ctx: Context, args: dict[str, Any]) -> int:
         return emit({"ok": True, "action": action, "source": "live", **result.to_dict()})
     repository = str(arg_value(args, "Repository", default=""))
     if action == "Cleanup":
+        _require_attached_cwd(ctx, root, action)
         if not repository:
             raise ScriptError("Repository is required")
         cleanup, _ = read_json_arg(root, args, "CleanupJson", "CleanupPath")
@@ -158,11 +168,7 @@ def command_project_truss(ctx: Context, args: dict[str, Any]) -> int:
     except (TypeError, ValueError) as exc:
         raise ScriptError("Issue must be a positive integer") from exc
     if action == "Resolve":
-        invocation_cwd = (ctx.invocation_cwd or Path.cwd()).resolve()
-        if invocation_cwd != root.resolve():
-            raise ScriptError(
-                "resolution invocation cwd does not match the task-visible worktree"
-            )
+        _require_attached_cwd(ctx, root, "resolution")
         require_recorded_value = str(arg_value(args, "RequireRecorded", default="false")).casefold()
         if require_recorded_value not in {"true", "false"}:
             raise ScriptError("RequireRecorded must be true or false")

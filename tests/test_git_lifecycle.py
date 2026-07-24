@@ -33,6 +33,7 @@ class FakeGitHubRunner:
         remote_url="https://github.com/owner/repo.git",
         rules=(),
         before_delete=None,
+        before_fetch=None,
     ):
         self.payload = {
             "headRepository": {"nameWithOwner": "owner/repo"},
@@ -41,6 +42,7 @@ class FakeGitHubRunner:
         self.remote_url = remote_url
         self.rules = list(rules)
         self.before_delete = before_delete
+        self.before_fetch = before_fetch
 
     def __call__(self, command, cwd, timeout=30):
         if command[:3] == ["gh", "pr", "view"]:
@@ -57,6 +59,9 @@ class FakeGitHubRunner:
             )
         if command[:3] == ["git", "update-ref", "-d"] and self.before_delete:
             callback, self.before_delete = self.before_delete, None
+            callback()
+        if command[:3] == ["git", "fetch", "--prune"] and self.before_fetch:
+            callback, self.before_fetch = self.before_fetch, None
             callback()
         return subprocess.run(
             command,
@@ -208,6 +213,18 @@ class GitLifecycleTests(unittest.TestCase):
                     "ResolutionJson": json.dumps(receipt),
                 },
             )
+        for action in ("Prepare", "Cleanup"):
+            with self.subTest(action=action), self.assertRaisesRegex(
+                ScriptError, "invocation cwd"
+            ):
+                command_project_truss(
+                    context,
+                    {
+                        "Action": action,
+                        "RepoRoot": str(Path.cwd()),
+                        "Repository": "owner/repo",
+                    },
+                )
 
     def test_initial_resolve_requires_prepare_evidence(self):
         root = Path.cwd()
@@ -267,6 +284,15 @@ class GitLifecycleTests(unittest.TestCase):
                     "pull_request": 1,
                     "branch": ["codex/x"],
                     "worktree": "/repo",
+                    "cleanup_authorized": True,
+                }
+            )
+        with self.assertRaisesRegex(ValueError, "absolute path"):
+            CleanupRequest.from_mapping(
+                {
+                    "pull_request": 1,
+                    "branch": "codex/x",
+                    "worktree": ".",
                     "cleanup_authorized": True,
                 }
             )
@@ -333,7 +359,6 @@ class GitLifecycleTests(unittest.TestCase):
                 ),
             )
             fixture.advance_remote("new remote\n")
-            fixture.git(fixture.repo, "fetch", "origin")
             with self.assertRaisesRegex(GitLifecycleError, "base is stale"):
                 validate_preparation(result)
 
@@ -618,6 +643,17 @@ class GitLifecycleTests(unittest.TestCase):
     def test_cleanup_skips_remote_present_no_authority_protected_and_dirty_worktree(self):
         with tempfile.TemporaryDirectory() as directory:
             fixture = GitRepositoryFixture(Path(directory))
+            (fixture.repo / "dirty.txt").write_text("dirty\n", encoding="utf-8")
+            result = cleanup_merged_outcome(
+                fixture.repo,
+                "owner/repo",
+                CleanupRequest(49, "codex/dirty", str(fixture.repo), True),
+                runner=FakeGitHubRunner({}),
+            )
+            self.assertEqual("skipped_unsafe_canonical", result.cleanup)
+
+        with tempfile.TemporaryDirectory() as directory:
+            fixture = GitRepositoryFixture(Path(directory))
             branch = "codex/present"
             head = fixture.create_remote_branch(branch)
             runner = FakeGitHubRunner(
@@ -727,6 +763,8 @@ class GitLifecycleTests(unittest.TestCase):
             fixture = GitRepositoryFixture(Path(directory))
             branch = "codex/race"
             head = fixture.create_remote_branch(branch)
+            linked = fixture.root / "linked"
+            fixture.git(fixture.repo, "worktree", "add", str(linked), branch)
             fixture.delete_remote_branch(branch)
             moved = fixture.advance_remote("moved\n")
             runner = FakeGitHubRunner(
@@ -740,17 +778,18 @@ class GitLifecycleTests(unittest.TestCase):
                     "url": "https://github.example/pull/54",
                 },
                 before_delete=lambda: fixture.git(
-                    fixture.repo, "branch", "-f", branch, moved
+                    fixture.repo, "update-ref", f"refs/heads/{branch}", moved
                 ),
             )
             result = cleanup_merged_outcome(
                 fixture.repo,
                 "owner/repo",
-                CleanupRequest(54, branch, str(fixture.repo), True),
+                CleanupRequest(54, branch, str(linked), True),
                 runner=runner,
             )
             self.assertEqual("skipped_diverged_branch", result.cleanup)
             self.assertEqual(moved, fixture.git(fixture.repo, "rev-parse", branch))
+            self.assertTrue(linked.exists())
 
     def test_fork_pull_request_head_is_not_accepted_as_primary_remote_proof(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -777,6 +816,34 @@ class GitLifecycleTests(unittest.TestCase):
                 runner=runner,
             )
             self.assertEqual("skipped_unverified_pull_request", result.cleanup)
+
+    def test_remote_branch_recreated_during_fetch_is_preserved(self):
+        with tempfile.TemporaryDirectory() as directory:
+            fixture = GitRepositoryFixture(Path(directory))
+            branch = "codex/recreated"
+            head = fixture.create_remote_branch(branch)
+            fixture.delete_remote_branch(branch)
+            runner = FakeGitHubRunner(
+                {
+                    "number": 57,
+                    "state": "MERGED",
+                    "mergedAt": "2026-07-24T00:00:00Z",
+                    "headRefName": branch,
+                    "headRefOid": head,
+                    "baseRefName": fixture.default_branch,
+                    "url": "https://github.example/pull/57",
+                },
+                before_fetch=lambda: fixture.git(
+                    fixture.repo, "push", "origin", branch
+                ),
+            )
+            result = cleanup_merged_outcome(
+                fixture.repo,
+                "owner/repo",
+                CleanupRequest(57, branch, str(fixture.repo), True),
+                runner=runner,
+            )
+            self.assertEqual("skipped_remote_branch_recreated", result.cleanup)
 
 
 if __name__ == "__main__":
