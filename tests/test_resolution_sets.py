@@ -277,6 +277,25 @@ class ResolutionSetTests(unittest.TestCase):
         multi_code, multi = resolve({**shared, "issues": [9, 11]}, issue=10)
         self.assertEqual((0, [9, 11], True), (multi_code, multi["issues"], multi["eligible"]))
 
+    def test_cleanup_action_preserves_its_exact_json_contract(self):
+        context = Context(
+            ROOT / "scripts/project-truss.sh", ROOT, "scripts/project-truss.sh",
+            "project-truss.sh", [], invocation_cwd=ROOT)
+        result = {
+            "canonical_checkout": str(ROOT), "primary_remote": "origin",
+            "default_branch": "main", "implementation_base": "a" * 40,
+            "cleanup": "skipped_not_authorized", "detail": "preserved",
+        }
+        request = json.dumps({
+            "pull_request": 21, "branch": "codex/issue-21", "worktree": str(ROOT),
+            "cleanup_authorized": False})
+        output = StringIO()
+        with patch("scripts.lib.commands.project.cleanup_merged_outcome", return_value=result), redirect_stdout(output):
+            code = command_project_truss(context, {
+                "Action": "Cleanup", "Repository": "owner/repo", "CleanupJson": request})
+        payload = json.loads(output.getvalue())
+        self.assertEqual((0, {"ok", "action", "source", *result}), (code, set(payload)))
+
     def test_resolve_action_rejects_stale_base_or_wrong_workspace(self):
         context = Context(
             ROOT / "scripts/project-truss.sh",
