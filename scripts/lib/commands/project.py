@@ -166,7 +166,7 @@ def command_project_truss(ctx: Context, args: dict[str, Any]) -> int:
             result = cleanup_merged_outcome(root, repository, request)
         except GitLifecycleError as exc:
             raise ScriptError(f"{exc.blocker}: {exc}") from exc
-        return emit({"ok": True, "action": action, "source": "live", **result.to_dict()})
+        return emit({"ok": True, "action": action, "source": "live", **result})
     issue_value = arg_value(args, "Issue")
     if not repository or issue_value in (None, ""):
         raise ScriptError("Repository and Issue are required")
