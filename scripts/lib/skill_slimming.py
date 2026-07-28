@@ -7,7 +7,7 @@ from typing import Any
 import yaml
 
 
-SKILLS = {"start", "shape", "resolve", "close", "advanced-user-input"}
+SKILLS = {"setup", "start", "shape", "resolve", "close", "advanced-user-input"}
 STALE = (
     "$superpowers" + "-project:",
     "Super" + "powers",

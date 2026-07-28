@@ -1,6 +1,6 @@
 version: 2
-public_skill: start
-skills: [start, shape, resolve, close, advanced-user-input]
+public_skills: [setup, start]
+skills: [setup, start, shape, resolve, close, advanced-user-input]
 hard_triggers:
   - explicit
   - merge_or_publication

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Setup"
+  short_description: "Configure Project Truss and Matt-backed methods."
+  default_prompt: "Use $project-truss:setup to configure this repository for Project Truss."

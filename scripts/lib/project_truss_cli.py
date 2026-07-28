@@ -20,7 +20,7 @@ from skill_slimming import validate_skill_slimming
 from truss_policy import load_contract
 
 
-SKILLS = {"start", "shape", "resolve", "close", "advanced-user-input"}
+SKILLS = {"setup", "start", "shape", "resolve", "close", "advanced-user-input"}
 OUTCOME_FIELDS = [
     "Intent", "Current Behavior", "Expected Outcome", "Target Output", "Owner", "Interface",
     "Cutover", "Replaced Path", "Evidence", "Acceptance Proof", "Stop Criteria", "Avoid", "Risk",
@@ -153,7 +153,7 @@ def command_validate_skill_metadata_contract(ctx: Context, args: dict[str, Any])
     findings = []
     files = sorted((root / "skills").glob("*/agents/openai.yaml"))
     if {path.parents[1].name for path in files} != SKILLS:
-        findings.append({"reason": "metadata inventory must match the five skills"})
+        findings.append({"reason": "metadata inventory must match the six skills"})
     for path in files:
         try:
             interface = (yaml.safe_load(read_text(path)) or {}).get("interface", {})
@@ -248,7 +248,7 @@ def _line_budgets(root: Path) -> dict[str, int]:
         "test_lines": sum(len(read_text(path).splitlines()) for path in test_files),
         "shell_files": sum(1 for path in script_files if path.suffix == ".sh") + sum(1 for path in (root / "skills").rglob("*.sh")),
     }
-    limits = {"skill_lines": 300, "script_lines": 4125, "test_lines": 2250, "shell_files": 18}
+    limits = {"skill_lines": 300, "script_lines": 4250, "test_lines": 2350, "shell_files": 18}
     excess = [f"{name}={values[name]}>{limit}" for name, limit in limits.items() if values[name] > limit]
     if excess:
         raise ScriptError("lean budget failed: " + ", ".join(excess))

@@ -29,7 +29,7 @@ Merge the guarded head only with authority. Re-read GitHub after merge, mark acc
 After GitHub confirms the guarded pull request merged and its remote head branch is deleted, return to the clean canonical checkout on the discovered default branch and run:
 
 ```bash
-scripts/project-truss.sh -Action Cleanup -RepoRoot . -Repository OWNER/REPO \
+"$PROJECT_TRUSS_ROOT/scripts/project-truss.sh" -Action Cleanup -RepoRoot . -Repository OWNER/REPO \
   -CleanupJson '{"pull_request":123,"branch":"codex/issue-123","worktree":"/absolute/outcome-worktree","cleanup_authorized":true}'
 ```
 

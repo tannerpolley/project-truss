@@ -1,6 +1,7 @@
 {
   "explicit": true,
-  "new_outcome": true,
-  "matt_configured": false,
+  "new_outcome": false,
+  "matt_configured": true,
+  "required_methods": ["tdd"],
   "available_methods": []
 }

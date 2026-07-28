@@ -13,6 +13,7 @@ try:
         synchronize_default, validate_preparation,
     )
     from ..truss_github import GitHubClient, ProjectProjection, load_fixture
+    from ..truss_setup import SetupError, SetupRequest, apply_setup, validate_setup_target
     from ..truss_policy import (
         FinalHealth,
         ResolutionReceipt,
@@ -32,6 +33,7 @@ except ImportError:
         synchronize_default, validate_preparation,
     )
     from truss_github import GitHubClient, ProjectProjection, load_fixture
+    from truss_setup import SetupError, SetupRequest, apply_setup, validate_setup_target
     from truss_policy import (
         FinalHealth,
         ResolutionReceipt,
@@ -144,6 +146,17 @@ def command_project_truss(ctx: Context, args: dict[str, Any]) -> int:
         request, _ = read_json_arg(root, args, "RequestJson", "RequestPath", required=False)
         result = plan_work(WorkRequest.from_mapping(request or {})).to_dict()
         return emit({"ok": True, "action": action, "source": "policy", **result})
+    if action == "Setup":
+        _require_attached_cwd(ctx, root, action)
+        setup, _ = read_json_arg(root, args, "SetupJson", "SetupPath")
+        request = SetupRequest.from_mapping(setup)
+        try:
+            evidence = validate_setup_target(root, request.repository)
+            result = apply_setup(root, request)
+        except SetupError as exc:
+            raise ScriptError(str(exc)) from exc
+        result["evidence"] = {**evidence, **result["evidence"]}
+        return emit({"ok": True, "action": action, "source": "local", **result})
     if action == "Project":
         projection, _ = read_json_arg(root, args, "ProjectionJson", "ProjectionPath")
         result = GitHubClient().project_membership(ProjectProjection.from_mapping(projection))
@@ -239,7 +252,7 @@ def command_project_truss(ctx: Context, args: dict[str, Any]) -> int:
         }
         return emit(payload, 0 if not findings else 1)
     raise ScriptError(
-        "Action must be Plan, Prepare, Project, Resolve, Status, Closeout, or Cleanup"
+        "Action must be Plan, Setup, Prepare, Project, Resolve, Status, Closeout, or Cleanup"
     )
 
 

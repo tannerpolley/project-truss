@@ -156,16 +156,17 @@ class DirectAndShapeTests(unittest.TestCase):
         )
 
         self.assertEqual((), direct.blockers)
-        self.assertEqual(("method_capability_missing",), missing_setup.blockers)
+        self.assertEqual((), missing_setup.blockers)
+        self.assertEqual("setup", missing_setup.next_skill)
         self.assertEqual(("method_capability_missing",), missing_grilling.blockers)
         self.assertEqual((), ready.blockers)
 
     def test_contract_and_issue_body_fail_closed_as_one_behavior_family(self):
         contract = load_contract(ROOT / "docs/project-truss/contract.yml")
         self.assertEqual(2, contract["version"])
-        self.assertEqual("start", contract["public_skill"])
+        self.assertEqual(["setup", "start"], contract["public_skills"])
         self.assertEqual(
-            ["start", "shape", "resolve", "close", "advanced-user-input"],
+            ["setup", "start", "shape", "resolve", "close", "advanced-user-input"],
             contract["skills"],
         )
         root = parse_issue_contract(ROOT_BODY)

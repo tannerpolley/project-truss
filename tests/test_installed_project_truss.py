@@ -19,14 +19,17 @@ from scripts.run_agent_usability_trials_support import _initialize_trial_reposit
 ROOT = Path(__file__).resolve().parents[1]
 PLUGIN_ROOT = Path(os.environ.get("PROJECT_TRUSS_INSTALLED_ROOT", ROOT)).resolve()
 SCENARIOS = {"direct", "governed-single", "governed-multi", "missing-method-capability", "premature-closeout"}
-SKILLS = {"start", "shape", "resolve", "close", "advanced-user-input"}
+SKILLS = {"setup", "start", "shape", "resolve", "close", "advanced-user-input"}
 
 
 class InstalledProjectTrussTests(unittest.TestCase):
-    def test_installed_surface_has_one_front_door_and_five_scenarios(self):
+    def test_installed_surface_has_two_public_entrypoints_and_five_scenarios(self):
         manifest = json.loads((PLUGIN_ROOT / ".codex-plugin" / "plugin.json").read_text(encoding="utf-8"))
         self.assertEqual(("project-truss", "2.0.0"), (manifest["name"], manifest["version"]))
-        self.assertEqual(["Use $project-truss:start only for explicit or hard-trigger governed work; ordinary coding stays direct."], manifest["interface"]["defaultPrompt"])
+        self.assertEqual(
+            ["Use $project-truss:setup once per repository, then $project-truss:start as the only ongoing engineering entrypoint."],
+            manifest["interface"]["defaultPrompt"],
+        )
         self.assertEqual(SKILLS, {path.parent.name for path in (PLUGIN_ROOT / "skills").glob("*/SKILL.md")})
         trial_root = ROOT / "tests" / "project-truss-trials"
         self.assertEqual(SCENARIOS, {path.name for path in trial_root.iterdir() if path.is_dir()})

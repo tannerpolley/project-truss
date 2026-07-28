@@ -5,6 +5,9 @@ Project Truss coordinates durable coding outcomes without replacing engineering 
 ## Core language
 
 - **Direct work:** work that can safely complete without durable Truss coordination.
+- **Facade:** the public Project Truss entrypoints that hide internal Truss stages and Matt method selection.
+- **Method mode:** one of `invocable`, `facaded`, `missing`, or `not_triggered`, describing how current evidence routes a Matt method.
+- **Decision map:** a facaded Wayfinder artifact used before Shape; it supplies context but is not an execution contract or lifecycle source.
 - **Governed outcome:** one result requiring publication, multiple units, delegation, a milestone, or cross-session continuity.
 - **Root:** the Matt-shaped problem and solution specification for a governed outcome.
 - **Leaf:** an executable tracer-bullet ticket under a root.
@@ -21,6 +24,9 @@ Project Truss coordinates durable coding outcomes without replacing engineering 
 ## Invariants
 
 - GitHub, Git, CI, and current worktrees are authoritative.
+- Users invoke only Project Truss Setup and Start; Truss owns internal stage and method routing.
+- Command-only Matt contracts are reported as facaded, never falsely claimed as invoked skills.
+- Decision maps and their question tickets never become Project Truss execution issues.
 - Labels, milestones, and Project fields never derive lifecycle state.
 - Multi-leaf selection is explicit.
 - One resolution set has one owner, implementation base, worktree, branch, receipt, and pull request.

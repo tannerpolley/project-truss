@@ -1,6 +1,6 @@
 # Project Truss
 
-Project Truss is a Matt-first, GitHub-native coordination plugin for durable coding outcomes. It adds issue structure, atomic resolution sets, dependency ordering, pull-request continuity, CI-aware closeout, descriptive labels, milestones, and optional GitHub Projects projection while leaving ordinary coding direct.
+Project Truss is the user-facing facade for Matt-first engineering and GitHub-native coordination. It adds issue structure, atomic resolution sets, dependency ordering, pull-request continuity, CI-aware closeout, descriptive labels, milestones, and optional GitHub Projects projection while leaving ordinary coding direct.
 
 The canonical product and runtime contract is [docs/project-truss/README.md](docs/project-truss/README.md).
 
@@ -9,7 +9,7 @@ The canonical product and runtime contract is [docs/project-truss/README.md](doc
 - Codex with plugin support
 - Git, Bash, and Python 3
 - authenticated GitHub CLI (`gh`)
-- Matt Pocock engineering skills and repository setup under `docs/agents/` for governed work
+- Matt Pocock engineering skills, routed behind Project Truss
 
 Native `gh project` support is required only when Project projection is explicitly requested. The optional `gh projects` extension is not a runtime dependency.
 
@@ -24,13 +24,14 @@ Start a fresh Codex session after installation.
 
 ## Use
 
-Invoke `$project-truss:start` for explicit Truss work or an outcome requiring publication, several deliverables, delegation, a milestone, or continuity beyond one safe context.
+Invoke `$project-truss:setup` once per repository, then `$project-truss:start` for engineering work. Start selects Matt methods and internal Truss stages; users do not need to invoke those implementation skills directly.
 
 ```text
+Use $project-truss:setup to configure this repository.
 Use $project-truss:start to own this outcome through verified merge and closeout.
 ```
 
-The installed skills are `start`, `shape`, `resolve`, `close`, and `advanced-user-input`.
+The installed skills are `setup`, `start`, `shape`, `resolve`, `close`, and `advanced-user-input`; only Setup and Start are user-facing entrypoints.
 
 ## Develop and release
 
