@@ -15,7 +15,7 @@ Commands below use `PROJECT_TRUSS_ROOT` for the absolute installed plugin root, 
 
 It preserves unrelated instructions and writes one managed Agent skills block plus the selected `docs/agents/` files. It does not create lifecycle state.
 
-`start` calls `"$PROJECT_TRUSS_ROOT/scripts/project-truss.sh" -Action Plan` and routes one outcome without requiring the user to name internal skills:
+`start` calls `"$PROJECT_TRUSS_ROOT/scripts/project-truss.sh" -Action Plan` and owns a continuation loop without requiring the user to name internal skills:
 
 - `shape` grills when required and publishes Matt root/leaf contracts directly to GitHub;
 - `resolve` claims one explicit singleton or multi-leaf atomic set in one worktree, branch, and pull request;
@@ -23,6 +23,10 @@ It preserves unrelated instructions and writes one managed Agent skills block pl
 - `advanced-user-input` handles only material decisions or authority.
 
 Before governed work, Start verifies repository setup and required method capabilities. Missing setup routes to Setup. Each method is reported as `invocable`, `facaded`, `missing`, or `not_triggered`; only a triggered `missing` method blocks governed work. Direct work is not blocked.
+
+Plan infers current Matt shaping, quality, and repository-profile methods. New outcomes and material rescope facade upstream `grill-with-docs` by invoking `grilling` with active `domain-modeling`; at least one one-at-a-time decision and explicit shared-understanding confirmation are required before Shape. Governed code requires code review, surface minimization, and cutthroat cleanup. Stable behavior requires TDD, while scientific-computing code additionally requires `scientific-coding-and-testing`.
+
+Every governed Plan has a non-null `next_action`. After each internal stage, Start re-reads authoritative Status and continues. Failed verification, CI, or review routes through diagnosis, repair, and retry. Intermediate publication, implementation, PR, CI, review, merge, and cleanup-preparation states are never completion.
 
 Wayfinder is a facaded, pre-Shape decision method for outcomes that exceed one safe context. Its map and `## Question` tickets are source context only. Shape creates fresh Project Truss root and leaf issues; Wayfinder metadata never becomes lifecycle evidence.
 

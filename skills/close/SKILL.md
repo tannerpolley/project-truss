@@ -40,3 +40,5 @@ Without local cleanup authority, pass `cleanup_authorized:false`; synchronizatio
 ## Roll up
 
 Close the root only after every required child derives Done and integrated repository health is clean. Close a milestone only after all included outcomes are Done. Restore the discovered canonical local default branch, remove only outcome-owned worktrees and branches, and retain GitHub/Git history as the durable record.
+
+Return to Start after every review, retry, merge, Cleanup, or roll-up step. Only verified closeout is terminal.

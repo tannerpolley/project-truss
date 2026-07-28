@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Made Start a closed continuation loop with inferred quality/profile methods and non-null governed next actions.
+- Aligned shaping with Matt's current `grill-with-docs` composition of `grilling` and `domain-modeling`.
+
 ## 2.0.0 - 2026-07-23
 
 - Replaced the provider-specific implementation workflow with Matt-first shaping, TDD, diagnosis, research, domain modeling, prototyping, conflict resolution, and two-axis review.

@@ -8,7 +8,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
-
 class GitHubProjectionTests(unittest.TestCase):
     def test_project_action_uses_native_gh_idempotently_and_rejects_truncation(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -42,8 +41,9 @@ class GitHubProjectionTests(unittest.TestCase):
             invalid = subprocess.run(
                 [*command[:-1], json.dumps({**projection, "owner": None})],
                 cwd=root, env=env, text=True, capture_output=True)
-        self.assertEqual((0, True, True), (
-            added.returncode, json.loads(added.stdout)["ok"], json.loads(added.stdout)["member"]))
+        self.assertEqual((0, True, True, "start"), (
+            added.returncode, json.loads(added.stdout)["ok"], json.loads(added.stdout)["member"],
+            json.loads(added.stdout)["next_skill"]))
         self.assertEqual(0, repeated.returncode)
         self.assertNotEqual(0, truncated.returncode)
         self.assertIn("github_capability_missing", truncated.stdout)

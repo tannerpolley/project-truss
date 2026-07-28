@@ -26,7 +26,7 @@ Resolve the installed Project Truss plugin root from this skill's location and s
 
 ```bash
 "$PROJECT_TRUSS_ROOT/scripts/project-truss.sh" -Action Setup -RepoRoot . -SetupJson \
-  '{"repository":"OWNER/REPO","instruction_file":"AGENTS.md","domain_layout":"single-context","triage_enabled":true,"available_methods":["grilling","tdd","diagnosing-bugs","research","domain-modeling","prototype","resolving-merge-conflicts","code-review"]}'
+  '{"repository":"OWNER/REPO","instruction_file":"AGENTS.md","domain_layout":"single-context","triage_enabled":true,"available_methods":["grilling","tdd","diagnosing-bugs","research","domain-modeling","prototype","resolving-merge-conflicts","code-review","cutthroat-code-cleanup","minimize-code-surface","scientific-coding-and-testing"]}'
 ```
 
 The Setup action verifies that `RepoRoot`, its GitHub remote, and authenticated `gh` all match the selected repository. It verifies existing instruction preference and strong multi-context signals, records the inspected evidence, and idempotently owns bounded sections in one `## Agent skills` block plus `docs/agents/issue-tracker.md`, `domain.md`, and optional `triage-labels.md`. Preserve unrelated instructions and re-read every output. If unmarked existing guidance conflicts with the draft, resolve that material choice before applying; the action preserves it outside the managed section.
@@ -34,7 +34,7 @@ The Setup action verifies that `RepoRoot`, its GitHub remote, and authenticated 
 ## Method truth
 
 - `invocable`: an installed Matt method Truss may use when evidence triggers it.
-- `facaded`: a command-only Matt contract implemented through Truss (`setup-matt-pocock-skills`, `wayfinder`).
+- `facaded`: a command-only Matt contract implemented through Truss (`setup-matt-pocock-skills`, `grill-with-docs`, `wayfinder`).
 - `missing`: a triggered required method that is unavailable; stop as `method_capability_missing`.
 - `not_triggered`: available or known but irrelevant to the current work; do not load it.
 

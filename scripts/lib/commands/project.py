@@ -156,11 +156,11 @@ def command_project_truss(ctx: Context, args: dict[str, Any]) -> int:
         except SetupError as exc:
             raise ScriptError(str(exc)) from exc
         result["evidence"] = {**evidence, **result["evidence"]}
-        return emit({"ok": True, "action": action, "source": "local", **result})
+        return emit({"ok": True, "action": action, "source": "local", "next_skill": "start", **result})
     if action == "Project":
         projection, _ = read_json_arg(root, args, "ProjectionJson", "ProjectionPath")
         result = GitHubClient().project_membership(ProjectProjection.from_mapping(projection))
-        return emit({"ok": True, "action": action, "source": "live", **result})
+        return emit({"ok": True, "action": action, "source": "live", "next_skill": "start", **result})
     if action == "Prepare":
         _require_attached_cwd(ctx, root, action)
         try:
@@ -179,7 +179,7 @@ def command_project_truss(ctx: Context, args: dict[str, Any]) -> int:
             result = cleanup_merged_outcome(root, repository, request)
         except GitLifecycleError as exc:
             raise ScriptError(f"{exc.blocker}: {exc}") from exc
-        return emit({"ok": True, "action": action, "source": "live", **result})
+        return emit({"ok": True, "action": action, "source": "live", "next_skill": "start", **result})
     issue_value = arg_value(args, "Issue")
     if not repository or issue_value in (None, ""):
         raise ScriptError("Repository and Issue are required")
@@ -203,7 +203,7 @@ def command_project_truss(ctx: Context, args: dict[str, Any]) -> int:
             require_recorded=require_recorded_value == "true",
         )
         return emit(
-            {"ok": result.eligible, "action": action, "source": "live", **result.to_dict()},
+            {"ok": result.eligible, "action": action, "source": "live", "next_skill": "start", **result.to_dict()},
             0 if result.eligible else 1,
         )
     snapshot_arg = arg_value(args, "SnapshotPath")
@@ -217,7 +217,7 @@ def command_project_truss(ctx: Context, args: dict[str, Any]) -> int:
             raise ScriptError("ImplementationBase is required after claim or implementation starts")
         if implementation_base:
             _validate_implementation_base(root, implementation_base)
-        payload = {"ok": True, "action": action, **derive_digest(snapshot).to_dict()}
+        payload = {"ok": True, "action": action, "next_skill": "start", **derive_digest(snapshot).to_dict()}
         return emit(payload)
     if action == "Closeout":
         if snapshot_arg:
@@ -231,7 +231,7 @@ def command_project_truss(ctx: Context, args: dict[str, Any]) -> int:
             github = GitHubClient()
             snapshots = [github.snapshot(repository, number) for number in receipt.issues]
             findings = close_resolution_findings(snapshots, receipt, FinalHealth.from_mapping(health))
-            payload = {"ok": not findings, "action": action, "source": "live",
+            payload = {"ok": not findings, "action": action, "source": "live", "next_skill": "start",
                        "issues": list(receipt.issues), "findings": list(findings),
                        "receipt": receipt.to_dict()}
             return emit(payload, 0 if not findings else 1)
@@ -248,6 +248,7 @@ def command_project_truss(ctx: Context, args: dict[str, Any]) -> int:
             "ok": not findings,
             "action": action,
             "source": "live",
+            "next_skill": "start",
             "findings": list(findings),
         }
         return emit(payload, 0 if not findings else 1)

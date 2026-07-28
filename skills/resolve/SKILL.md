@@ -40,8 +40,10 @@ Retain per-leaf Ready, Claimed, In review, Blocked, and Done states. The receipt
 
 ## Execute through Matt methods
 
-Use only methods triggered by the work: TDD for stable behavior, diagnosing-bugs for demonstrated failures, research for primary-source uncertainty, domain-modeling for language and invariants, prototype for a throwaway design question, resolving-merge-conflicts for conflicts, and code-review before handoff. Missing required capability produces `method_capability_missing`.
+Use Plan-inferred methods: TDD for stable behavior, diagnosing-bugs for demonstrated failures, research for primary-source uncertainty, domain-modeling for language and invariants, prototype for a throwaway design question, resolving-merge-conflicts for conflicts, code-review before handoff, and both `minimize-code-surface` and `cutthroat-code-cleanup` for governed code. Scientific-computing code also requires `scientific-coding-and-testing`. Missing capability is `method_capability_missing`.
 
 Keep canonical `CONTEXT.md`, ADRs, and useful research notes. Keep prototypes on throwaway branches with a linked verdict. Do not create local issue/spec/plan mirrors.
 
 If the root records a GitHub Project projection, run the Project action with the linked pull-request URL and `ensure:true`. It uses native `gh project item-add` idempotently and verifies membership. Project fields remain non-authoritative.
+
+After implementation, handoff, or pull-request creation, return to Start; none is terminal.
