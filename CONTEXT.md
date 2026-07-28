@@ -6,6 +6,8 @@ Project Truss coordinates durable coding outcomes without replacing engineering 
 
 - **Direct work:** work that can safely complete without durable Truss coordination.
 - **Facade:** the public Project Truss entrypoints that hide internal Truss stages and Matt method selection.
+- **Continuation loop:** Start's repeated observation and routing from authoritative state until direct completion, intentional handoff, a named blocker, or verified closeout.
+- **Grill with docs:** the facaded Matt engineering interview composed from model-invocable grilling and active domain modeling.
 - **Method mode:** one of `invocable`, `facaded`, `missing`, or `not_triggered`, describing how current evidence routes a Matt method.
 - **Decision map:** a facaded Wayfinder artifact used before Shape; it supplies context but is not an execution contract or lifecycle source.
 - **Governed outcome:** one result requiring publication, multiple units, delegation, a milestone, or cross-session continuity.
@@ -25,6 +27,8 @@ Project Truss coordinates durable coding outcomes without replacing engineering 
 
 - GitHub, Git, CI, and current worktrees are authoritative.
 - Users invoke only Project Truss Setup and Start; Truss owns internal stage and method routing.
+- Every unfinished governed state has a next action, and every internal stage returns control to Start.
+- New governed outcomes and material rescope require at least one grilling decision and explicit shared-understanding confirmation before Shape.
 - Command-only Matt contracts are reported as facaded, never falsely claimed as invoked skills.
 - Decision maps and their question tickets never become Project Truss execution issues.
 - Labels, milestones, and Project fields never derive lifecycle state.

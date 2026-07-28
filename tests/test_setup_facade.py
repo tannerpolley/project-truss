@@ -13,16 +13,9 @@ from scripts.lib.truss_setup import SetupError, SetupRequest, apply_setup, valid
 from scripts.lib.truss_policy import OutcomeSnapshot, WorkRequest, all_method_routes, derive_digest, parse_issue_contract, plan_work
 
 ROOT = Path(__file__).resolve().parents[1]
-METHODS = [
-    "grilling",
-    "tdd",
-    "diagnosing-bugs",
-    "research",
-    "domain-modeling",
-    "prototype",
-    "resolving-merge-conflicts",
-    "code-review",
-]
+METHODS = ["grilling", "tdd", "diagnosing-bugs", "research", "domain-modeling", "prototype",
+           "resolving-merge-conflicts", "code-review", "cutthroat-code-cleanup",
+           "minimize-code-surface", "scientific-coding-and-testing"]
 
 class SetupFacadeTests(unittest.TestCase):
     def test_setup_is_idempotent_and_preserves_unrelated_instructions(self):
@@ -175,6 +168,14 @@ class SetupFacadeTests(unittest.TestCase):
             self.assertEqual("Keep me.\n", agents.read_text(encoding="utf-8"))
             self.assertFalse((root / "docs/agents/issue-tracker.md").exists())
 
+    def test_setup_rejects_invalid_external_values(self):
+        base = {"repository": "owner/repo", "instruction_file": "AGENTS.md",
+                "domain_layout": "single-context", "triage_enabled": True, "available_methods": []}
+        with self.assertRaises(ValueError):
+            SetupRequest.from_mapping({**base, "repository": 1})
+        with self.assertRaisesRegex(ValueError, "duplicates"):
+            SetupRequest.from_mapping({**base, "available_methods": ["tdd", "tdd"]})
+
     def test_plan_routes_facaded_and_invocable_methods_truthfully(self):
         setup = plan_work(WorkRequest(explicit=True))
         self.assertEqual(("setup", ()), (setup.next_skill, setup.blockers))
@@ -187,11 +188,14 @@ class SetupFacadeTests(unittest.TestCase):
                 material_decision_missing=True,
                 matt_configured=True,
                 new_outcome=True,
-                available_methods=("grilling",),
+                grilling_decisions=("Question -> answer",),
+                shared_understanding_confirmation="Confirmed",
+                available_methods=("grilling", "domain-modeling"),
             )
         )
         self.assertEqual("start", wayfinder.next_skill)
         self.assertEqual("facaded", wayfinder.method_routes["wayfinder"])
+        self.assertEqual("facaded", wayfinder.method_routes["grill-with-docs"])
         self.assertEqual("invocable", wayfinder.method_routes["grilling"])
         self.assertEqual("not_triggered", wayfinder.method_routes["tdd"])
 
@@ -206,23 +210,6 @@ class SetupFacadeTests(unittest.TestCase):
         self.assertEqual(("method_capability_missing",), missing.blockers)
         self.assertEqual("missing", missing.method_routes["tdd"])
         self.assertEqual("not_triggered", all_method_routes(("grilling",))["tdd"])
-
-    def test_setup_request_rejects_coerced_values_and_duplicate_methods(self):
-        base = {
-            "repository": "owner/repo",
-            "instruction_file": "AGENTS.md",
-            "domain_layout": "single-context",
-            "triage_enabled": True,
-            "available_methods": [],
-        }
-        for field in ("repository", "instruction_file", "domain_layout"):
-            with self.subTest(field=field):
-                with self.assertRaises(ValueError):
-                    SetupRequest.from_mapping({**base, field: 1})
-        with self.assertRaisesRegex(ValueError, "duplicates"):
-            SetupRequest.from_mapping(
-                {**base, "available_methods": ["tdd", "tdd"]}
-            )
 
     def test_wayfinder_questions_are_not_truss_execution_contracts(self):
         wayfinder = "## Question\n\nWhich persistence model should the destination use?"

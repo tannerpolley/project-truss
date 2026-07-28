@@ -118,7 +118,6 @@ class DirectAndShapeTests(unittest.TestCase):
         self.assertEqual("direct", result.lane)
         self.assertEqual((), result.layers)
         self.assertFalse(result.question_required)
-
     def test_governed_work_uses_only_the_adaptive_shape_and_material_question(self):
         single = plan_work(WorkRequest(explicit=True))
         release = plan_work(
@@ -126,41 +125,52 @@ class DirectAndShapeTests(unittest.TestCase):
                 explicit=True,
                 release_or_milestone=True,
                 independent_units=3,
-                material_decision_missing=True,
+                matt_configured=True,
+                new_outcome=True,
+                grilling_decisions=("Which route? -> Continue automatically.",),
+                shared_understanding_confirmation="Confirmed.",
+                available_methods=("grilling", "domain-modeling"),
             )
         )
         self.assertEqual(("leaf", "pull_request"), single.layers)
         self.assertFalse(single.question_required)
+        self.assertEqual("invoke project-truss:setup", single.to_dict()["next_action"])
         self.assertEqual(
             ("milestone", "parent", "leaf", "pull_request"), release.layers
         )
-        self.assertTrue(release.question_required)
-
-    def test_missing_matt_capability_blocks_only_governed_work(self):
-        direct = plan_work(WorkRequest())
-        missing_setup = plan_work(WorkRequest(explicit=True))
-        missing_grilling = plan_work(
-            WorkRequest(
-                explicit=True,
-                matt_configured=True,
-                new_outcome=True,
-            )
+        self.assertFalse(release.question_required)
+        self.assertEqual("shape", release.next_skill)
+    def test_plan_infers_grilling_quality_and_profile_methods(self):
+        with self.assertRaises(ValueError): WorkRequest.from_mapping({"repository_profile": []})
+        self.assertEqual("setup", plan_work(WorkRequest(explicit=True)).next_skill)
+        request = WorkRequest(
+            explicit=True, matt_configured=True, new_outcome=True, code_change=True,
+            stable_behavior_change=True, repository_profile="scientific-computing",
+            grilling_decisions=("Question -> answer",),
+            shared_understanding_confirmation="Confirmed",
+            available_methods=("grilling", "domain-modeling", "tdd", "code-review",
+                               "cutthroat-code-cleanup", "minimize-code-surface"),
         )
-        ready = plan_work(
-            WorkRequest(
-                explicit=True,
-                matt_configured=True,
-                new_outcome=True,
-                available_methods=("grilling",),
-            )
-        )
-
-        self.assertEqual((), direct.blockers)
-        self.assertEqual((), missing_setup.blockers)
-        self.assertEqual("setup", missing_setup.next_skill)
-        self.assertEqual(("method_capability_missing",), missing_grilling.blockers)
-        self.assertEqual((), ready.blockers)
-
+        plan = plan_work(request)
+        self.assertFalse(plan.question_required)
+        self.assertEqual("facaded", plan.method_routes["grill-with-docs"])
+        self.assertEqual("missing", plan.method_routes["scientific-coding-and-testing"])
+        for method in ("grilling", "domain-modeling", "tdd", "code-review",
+                       "cutthroat-code-cleanup", "minimize-code-surface"):
+            self.assertEqual("invocable", plan.method_routes[method])
+        self.assertEqual(("method_capability_missing",), plan.blockers)
+        self.assertIsNone(plan.next_skill)
+        self.assertEqual("stop: method_capability_missing", plan.to_dict()["next_action"])
+        ungrilled = plan_work(WorkRequest(explicit=True, matt_configured=True, new_outcome=True,
+            available_methods=("grilling", "domain-modeling")))
+        self.assertEqual((True, "start", ("decision_required",)),
+                         (ungrilled.question_required, ungrilled.next_skill, ungrilled.blockers))
+        resumed = plan_work(WorkRequest(explicit=True, matt_configured=True))
+        self.assertEqual(("start", "invoke project-truss:start"),
+                         (resumed.next_skill, resumed.to_dict()["next_action"]))
+        recovery = plan_work(WorkRequest(explicit=True, matt_configured=True, failed_gate="ci",
+                                         available_methods=("diagnosing-bugs",)))
+        self.assertEqual("invocable", recovery.method_routes["diagnosing-bugs"])
     def test_contract_and_issue_body_fail_closed_as_one_behavior_family(self):
         contract = load_contract(ROOT / "docs/project-truss/contract.yml")
         self.assertEqual(2, contract["version"])
@@ -298,7 +308,7 @@ class TruthfulCloseoutTests(unittest.TestCase):
                 (root / "docs/legacy-workflow/plans/nested/steps.md").write_text("working plan", encoding="utf-8")
                 code, payload = status()
 
-        self.assertEqual((0, [129]), (code, [item["number"] for item in payload["ready_frontier"]]))
+        self.assertEqual((0, [129], "start"), (code, [item["number"] for item in payload["ready_frontier"]], payload["next_skill"]))
         self.assertNotIn("unretired_artifacts", payload)
         self.assertNotIn("implementation_artifact_history", payload)
 
@@ -578,23 +588,22 @@ class GitHubObservationTests(unittest.TestCase):
 
 
 class LauncherTests(unittest.TestCase):
-    def test_plan_launcher_is_read_only_and_returns_the_selected_shape(self):
-        process = subprocess.run(
-            [
-                "bash",
-                str(ROOT / "scripts/project-truss.sh"),
-                "-Action",
-                "Plan",
-                "-RequestJson",
-                json.dumps({"explicit": True, "independent_units": 2}),
-            ],
-            cwd="/tmp",
-            text=True,
-            capture_output=True,
-        )
-        self.assertEqual(0, process.returncode, process.stdout + process.stderr)
-        payload = json.loads(process.stdout)
-        self.assertEqual(("Plan", "governed", ["parent", "leaf", "pull_request"]), (payload["action"], payload["lane"], payload["layers"]))
+    def test_plan_cli_routes_shape_capability_stops_and_failed_gate_recovery(self):
+        def launch(request):
+            process = subprocess.run(["bash", str(ROOT / "scripts/project-truss.sh"), "-Action", "Plan",
+                "-RequestJson", json.dumps(request)], cwd="/tmp", text=True, capture_output=True)
+            self.assertEqual(0, process.returncode, process.stdout + process.stderr)
+            return json.loads(process.stdout)
+        shaped = launch({"explicit": True, "independent_units": 2})
+        self.assertEqual(("Plan", "governed", ["parent", "leaf", "pull_request"]),
+                         (shaped["action"], shaped["lane"], shaped["layers"]))
+        blocked = launch({"explicit": True, "matt_configured": True, "new_outcome": True,
+            "grilling_decisions": ["Question -> answer"], "shared_understanding_confirmation": "Confirmed"})
+        self.assertEqual((None, "stop: method_capability_missing"),
+                         (blocked["next_skill"], blocked["next_action"]))
+        recovery = launch({"explicit": True, "matt_configured": True, "failed_gate": "review",
+                           "available_methods": ["diagnosing-bugs"]})
+        self.assertEqual("invocable", recovery["method_routes"]["diagnosing-bugs"])
 
 
 if __name__ == "__main__":

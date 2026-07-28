@@ -276,7 +276,6 @@ class ResolutionSetTests(unittest.TestCase):
 
         multi_code, multi = resolve({**shared, "issues": [9, 11]}, issue=10)
         self.assertEqual((0, [9, 11], True), (multi_code, multi["issues"], multi["eligible"]))
-
     def test_cleanup_action_preserves_its_exact_json_contract(self):
         context = Context(
             ROOT / "scripts/project-truss.sh", ROOT, "scripts/project-truss.sh",
@@ -294,7 +293,8 @@ class ResolutionSetTests(unittest.TestCase):
             code = command_project_truss(context, {
                 "Action": "Cleanup", "Repository": "owner/repo", "CleanupJson": request})
         payload = json.loads(output.getvalue())
-        self.assertEqual((0, {"ok", "action", "source", *result}), (code, set(payload)))
+        self.assertEqual((0, {"ok", "action", "source", "next_skill", *result}, "start"),
+                         (code, set(payload), payload["next_skill"]))
 
     def test_resolve_action_rejects_stale_base_or_wrong_workspace(self):
         context = Context(
@@ -396,10 +396,10 @@ class ResolutionSetTests(unittest.TestCase):
                       "integration_healthy": True, "source_clean": True, "head_sha": "b" * 40}
             closed, close_payload = launch("close", "-Action", "Closeout",
                 "-ResolutionJson", json.dumps(close.to_dict()), "-HealthJson", json.dumps(health))
-        self.assertEqual((0, True, [9, 11]), (
-            resolved.returncode, resolve_payload["eligible"], resolve_payload["issues"]))
-        self.assertEqual((0, True, []), (
-            closed.returncode, close_payload["ok"], close_payload["findings"]))
+        self.assertEqual((0, True, [9, 11], "start"), (
+            resolved.returncode, resolve_payload["eligible"], resolve_payload["issues"], resolve_payload["next_skill"]))
+        self.assertEqual((0, True, [], "start"), (
+            closed.returncode, close_payload["ok"], close_payload["findings"], close_payload["next_skill"]))
 
     def test_resolution_closeout_requires_one_shared_verified_pull_request(self):
         receipt = ResolutionReceipt.from_mapping(

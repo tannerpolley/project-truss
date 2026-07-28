@@ -13,59 +13,29 @@ import yaml
 SKILLS = ("setup", "start", "shape", "resolve", "close", "advanced-user-input")
 PUBLIC_SKILLS = ("setup", "start")
 INVOCABLE_METHODS = (
-    "grilling", "tdd", "diagnosing-bugs", "research", "domain-modeling",
-    "prototype", "resolving-merge-conflicts", "code-review",
+    "grilling", "tdd", "diagnosing-bugs", "research", "domain-modeling", "prototype",
+    "resolving-merge-conflicts", "code-review", "cutthroat-code-cleanup",
+    "minimize-code-surface", "scientific-coding-and-testing",
 )
-FACADED_METHODS = ("setup-matt-pocock-skills", "wayfinder")
-MATT_METHODS = (*FACADED_METHODS, *INVOCABLE_METHODS)
-HARD_TRIGGERS = (
-    "explicit",
-    "merge_or_publication",
-    "release_or_milestone",
-    "multiple_independent_units",
-    "multi_agent_delegation",
-    "exceeds_safe_context",
-)
+FACADED_METHODS = ("setup-matt-pocock-skills", "grill-with-docs", "wayfinder")
+ROUTED_METHODS = (*FACADED_METHODS, *INVOCABLE_METHODS)
+HARD_TRIGGERS = ("explicit", "merge_or_publication", "release_or_milestone",
+                 "multiple_independent_units", "multi_agent_delegation", "exceeds_safe_context")
 ROOT_ISSUE_SECTIONS = (
-    "Problem Statement",
-    "Solution",
-    "User Stories",
-    "Implementation Decisions",
-    "Testing Decisions",
-    "Out of Scope",
-    "Further Notes",
+    "Problem Statement", "Solution", "User Stories", "Implementation Decisions", "Testing Decisions",
+    "Out of Scope", "Further Notes",
 )
-LEAF_ISSUE_SECTIONS = (
-    "Parent",
-    "What to build",
-    "Acceptance criteria",
-    "Blocked by",
-)
+LEAF_ISSUE_SECTIONS = ("Parent", "What to build", "Acceptance criteria", "Blocked by")
 ADVISORY_LABELS = {"ready_for_agent": "agent-shaped"}
 RECEIPTS = ("claim", "blocker_or_decision", "handoff", "verified_closeout")
 BLOCKERS = (
-    "authority_required",
-    "decision_required",
-    "github_capability_missing",
-    "method_capability_missing",
-    "contract_incomplete",
-    "dependency_blocked",
-    "claim_conflict",
-    "verification_failed",
-    "integration_unhealthy",
-    "state_contradiction",
-    "external_state_unavailable",
+    "authority_required", "decision_required", "github_capability_missing", "method_capability_missing",
+    "contract_incomplete", "dependency_blocked", "claim_conflict", "verification_failed",
+    "integration_unhealthy", "state_contradiction", "external_state_unavailable",
 )
 _CONTRACT_KEYS = {
-    "version",
-    "public_skills",
-    "skills",
-    "hard_triggers",
-    "root_issue_sections",
-    "leaf_issue_sections",
-    "advisory_labels",
-    "receipts",
-    "blockers",
+    "version", "public_skills", "skills", "hard_triggers", "root_issue_sections", "leaf_issue_sections",
+    "advisory_labels", "receipts", "blockers",
 }
 
 
@@ -114,26 +84,45 @@ class WorkRequest:
     matt_configured: bool = False
     new_outcome: bool = False
     material_rescope: bool = False
+    code_change: bool = False
+    stable_behavior_change: bool = False
+    repository_profile: str = "general"
+    grilling_decisions: tuple[str, ...] = ()
+    shared_understanding_confirmation: str = ""
+    failed_gate: str = ""
     required_methods: tuple[str, ...] = ()
     available_methods: tuple[str, ...] = ()
 
     @classmethod
     def from_mapping(cls, data: Mapping[str, Any]) -> "WorkRequest":
         values = _strict_mapping(data, set(cls.__dataclass_fields__), "work request")
-        return cls(
-            explicit=_bool(values, "explicit"),
-            merge_or_publication=_bool(values, "merge_or_publication"),
-            release_or_milestone=_bool(values, "release_or_milestone"),
-            independent_units=_positive_int(values, "independent_units"),
-            delegated_owners=_positive_int(values, "delegated_owners"),
-            exceeds_safe_context=_bool(values, "exceeds_safe_context"),
-            material_decision_missing=_bool(values, "material_decision_missing"),
-            matt_configured=_bool(values, "matt_configured"),
-            new_outcome=_bool(values, "new_outcome"),
-            material_rescope=_bool(values, "material_rescope"),
-            required_methods=_strings(values, "required_methods"),
-            available_methods=_strings(values, "available_methods"),
-        )
+        for name in (
+            "explicit", "merge_or_publication", "release_or_milestone",
+            "exceeds_safe_context", "material_decision_missing", "matt_configured",
+            "new_outcome", "material_rescope", "code_change", "stable_behavior_change",
+        ):
+            if name in values:
+                values[name] = _bool(values, name)
+        for name in ("independent_units", "delegated_owners"):
+            if name in values:
+                values[name] = _positive_int(values, name)
+        for name in ("required_methods", "available_methods", "grilling_decisions"):
+            if name in values:
+                values[name] = _strings(values, name)
+        profile = values.get("repository_profile", "general")
+        if not isinstance(profile, str) or profile not in {
+            "general", "application-development", "scientific-computing"
+        }:
+            raise ValueError("invalid repository_profile")
+        failed_gate = values.get("failed_gate", "")
+        if not isinstance(failed_gate, str) or failed_gate not in {"", "verification", "ci", "review"}:
+            raise ValueError("invalid failed_gate")
+        confirmation = values.get("shared_understanding_confirmation", "")
+        if "shared_understanding_confirmation" in values and (not isinstance(confirmation, str) or not confirmation.strip()):
+            raise ValueError("shared_understanding_confirmation must be non-empty")
+        if confirmation:
+            values["shared_understanding_confirmation"] = confirmation.strip()
+        return cls(**values)
 
 
 @dataclass(frozen=True)
@@ -147,11 +136,11 @@ class TrussPlan:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "lane": self.lane,
-            "layers": list(self.layers),
-            "question_required": self.question_required,
-            "blockers": list(self.blockers),
+            "lane": self.lane, "layers": list(self.layers),
+            "question_required": self.question_required, "blockers": list(self.blockers),
             "next_skill": self.next_skill,
+            "next_action": f"stop: {self.blockers[0]}" if self.next_skill is None and self.blockers
+            else "proceed directly" if not self.next_skill else f"invoke project-truss:{self.next_skill}",
             "method_routes": dict(self.method_routes or {}),
         }
 
@@ -165,29 +154,22 @@ def _route_methods(
         if method in FACADED_METHODS:
             return "facaded"
         return "invocable" if configured and method in available else "missing"
-    methods = (*MATT_METHODS, *sorted(required - set(MATT_METHODS)))
+    methods = (*ROUTED_METHODS, *sorted(required - set(ROUTED_METHODS)))
     return {method: route(method) for method in methods}
 
 
 def all_method_routes(available: tuple[str, ...]) -> dict[str, str]:
     return {
-        method: "facaded" if method in FACADED_METHODS
-        else "invocable" if method in available else "not_triggered"
-        for method in MATT_METHODS
+        method: "facaded" if method in FACADED_METHODS else
+        "invocable" if method in available else "not_triggered" for method in ROUTED_METHODS
     }
 
 
 def plan_work(request: WorkRequest) -> TrussPlan:
-    governed = any(
-        (
-            request.explicit,
-            request.merge_or_publication,
-            request.release_or_milestone,
-            request.independent_units > 1,
-            request.delegated_owners > 1,
-            request.exceeds_safe_context,
-        )
-    )
+    governed = any((
+        request.explicit, request.merge_or_publication, request.release_or_milestone,
+        request.independent_units > 1, request.delegated_owners > 1, request.exceeds_safe_context,
+    ))
     if not governed:
         return TrussPlan("direct", (), False, method_routes=_route_methods(set(), (), False))
     layers = ["leaf", "pull_request"]
@@ -203,23 +185,41 @@ def plan_work(request: WorkRequest) -> TrussPlan:
         )
     required = set(request.required_methods)
     if request.new_outcome or request.material_rescope:
-        required.add("grilling")
+        required.update(("grill-with-docs", "grilling", "domain-modeling"))
+    if request.code_change:
+        required.update(("code-review", "cutthroat-code-cleanup", "minimize-code-surface"))
+    if request.stable_behavior_change:
+        required.add("tdd")
+    if request.code_change and request.repository_profile == "scientific-computing":
+        required.add("scientific-coding-and-testing")
+    if request.failed_gate:
+        required.add("diagnosing-bugs")
     wayfinding = request.exceeds_safe_context and request.material_decision_missing
     if wayfinding:
         required.add("wayfinder")
     routes = _route_methods(required, request.available_methods, True)
-    blockers = ("method_capability_missing",) if "missing" in routes.values() else ()
+    grilling_due = (request.new_outcome or request.material_rescope) and (
+        not request.grilling_decisions or not request.shared_understanding_confirmation
+    )
+    blockers = tuple(
+        code for condition, code in (
+            ("missing" in routes.values(), "method_capability_missing"),
+            (grilling_due, "decision_required"),
+        ) if condition
+    )
     next_skill = (
-        "start"
-        if wayfinding
+        None
+        if "method_capability_missing" in blockers
+        else "start"
+        if wayfinding or grilling_due
         else "advanced-user-input"
         if request.material_decision_missing
         else "shape"
         if request.new_outcome or request.material_rescope
-        else None
+        else "start"
     )
     return TrussPlan(
-        "governed", tuple(layers), request.material_decision_missing,
+        "governed", tuple(layers), request.material_decision_missing or grilling_due,
         blockers, next_skill, routes,
     )
 
