@@ -1,6 +1,17 @@
 # Project Truss Matt Method Routing
 
-Project Truss owns GitHub-native coordination. Matt Pocock engineering skills own shaping and implementation technique. Route only when current evidence matches a method; availability is a capability, not something to assume.
+Project Truss is the user-facing facade. Users invoke `project-truss:setup` once per repository and `project-truss:start` for ongoing work; Truss routes its internal stages and Matt Pocock engineering methods. Project Truss owns GitHub-native coordination while Matt methods own shaping and implementation technique.
+
+## Invocation modes
+
+| Mode | Meaning |
+|---|---|
+| `invocable` | An installed model-invocable Matt skill is called when its trigger matches. |
+| `facaded` | Project Truss adopts a command-only Matt contract and produces the equivalent repository result. |
+| `missing` | A triggered required method is unavailable, so governed work stops with `method_capability_missing`. |
+| `not_triggered` | The method is known but irrelevant to the current evidence. |
+
+`setup-matt-pocock-skills` and Wayfinder are facaded contracts. Setup writes the Matt-compatible `docs/agents/` structure and one bounded instruction block without replacing unrelated repository guidance. Wayfinder is used only when a material decision exceeds one safe context.
 
 ## Required shaping method
 
@@ -20,14 +31,16 @@ Resume an unchanged published issue without repeating grilling.
 | Git reports an active merge or rebase conflict | `resolving-merge-conflicts` | Verified conflict resolution |
 | A shared diff is ready for handoff | `code-review` | Standards report plus per-ticket Spec reports |
 
-Command-oriented Matt workflows such as setup, grilling-with-docs, spec publication, ticket publication, and implement may be unavailable for model invocation. Truss adopts their contracts and outputs; it must not claim to have invoked a method that is absent.
+Command-oriented Matt workflows such as setup and Wayfinder may be unavailable for model invocation. Truss reports them as `facaded`; it must not claim to have invoked a skill that is absent.
 
 ## Capability failure
 
-Before governed work, `start` verifies repository setup and required methods against the actual available skill list. A missing package, `docs/agents/` configuration, or required method produces `method_capability_missing`.
+Before governed work, `start` verifies repository setup and required methods against the actual available skill list. Missing repository setup routes to `project-truss:setup`. A triggered method that is neither invocable nor facaded produces `method_capability_missing`.
 
 Direct work remains available. Governed work stops until the method is installed, configured, or the outcome is explicitly reshaped so that method is no longer required.
 
 ## Canonical evidence
 
 Keep `CONTEXT.md`, ADRs, and useful research notes in repository-defined locations. Keep prototypes on throwaway branches with a linked verdict. GitHub issues hold the root spec and leaf tickets. Do not create local lifecycle mirrors or planning artifacts.
+
+Wayfinder maps and their `## Question` tickets are decision artifacts, not Project Truss execution issues. Shape may cite them as source context, but creates fresh root and leaf contracts and never derives lifecycle state from Wayfinder metadata.

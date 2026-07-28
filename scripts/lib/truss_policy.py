@@ -10,7 +10,14 @@ from typing import Any, ClassVar, Mapping
 import yaml
 
 
-SKILLS = ("start", "shape", "resolve", "close", "advanced-user-input")
+SKILLS = ("setup", "start", "shape", "resolve", "close", "advanced-user-input")
+PUBLIC_SKILLS = ("setup", "start")
+INVOCABLE_METHODS = (
+    "grilling", "tdd", "diagnosing-bugs", "research", "domain-modeling",
+    "prototype", "resolving-merge-conflicts", "code-review",
+)
+FACADED_METHODS = ("setup-matt-pocock-skills", "wayfinder")
+MATT_METHODS = (*FACADED_METHODS, *INVOCABLE_METHODS)
 HARD_TRIGGERS = (
     "explicit",
     "merge_or_publication",
@@ -51,7 +58,7 @@ BLOCKERS = (
 )
 _CONTRACT_KEYS = {
     "version",
-    "public_skill",
+    "public_skills",
     "skills",
     "hard_triggers",
     "root_issue_sections",
@@ -135,6 +142,8 @@ class TrussPlan:
     layers: tuple[str, ...]
     question_required: bool
     blockers: tuple[str, ...] = ()
+    next_skill: str | None = None
+    method_routes: Mapping[str, str] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -142,7 +151,30 @@ class TrussPlan:
             "layers": list(self.layers),
             "question_required": self.question_required,
             "blockers": list(self.blockers),
+            "next_skill": self.next_skill,
+            "method_routes": dict(self.method_routes or {}),
         }
+
+
+def _route_methods(
+    required: set[str], available: tuple[str, ...], configured: bool
+) -> dict[str, str]:
+    def route(method: str) -> str:
+        if method not in required:
+            return "not_triggered"
+        if method in FACADED_METHODS:
+            return "facaded"
+        return "invocable" if configured and method in available else "missing"
+    methods = (*MATT_METHODS, *sorted(required - set(MATT_METHODS)))
+    return {method: route(method) for method in methods}
+
+
+def all_method_routes(available: tuple[str, ...]) -> dict[str, str]:
+    return {
+        method: "facaded" if method in FACADED_METHODS
+        else "invocable" if method in available else "not_triggered"
+        for method in MATT_METHODS
+    }
 
 
 def plan_work(request: WorkRequest) -> TrussPlan:
@@ -157,24 +189,45 @@ def plan_work(request: WorkRequest) -> TrussPlan:
         )
     )
     if not governed:
-        return TrussPlan("direct", (), False, ())
+        return TrussPlan("direct", (), False, method_routes=_route_methods(set(), (), False))
     layers = ["leaf", "pull_request"]
     if request.independent_units > 1:
         layers.insert(0, "parent")
     if request.release_or_milestone and request.independent_units > 1:
         layers.insert(0, "milestone")
+    if not request.matt_configured:
+        return TrussPlan(
+            "governed", tuple(layers), request.material_decision_missing,
+            next_skill="setup",
+            method_routes=_route_methods({"setup-matt-pocock-skills"}, (), False),
+        )
     required = set(request.required_methods)
     if request.new_outcome or request.material_rescope:
         required.add("grilling")
-    missing_method = not request.matt_configured or not required.issubset(
-        request.available_methods
+    wayfinding = request.exceeds_safe_context and request.material_decision_missing
+    if wayfinding:
+        required.add("wayfinder")
+    routes = _route_methods(required, request.available_methods, True)
+    blockers = ("method_capability_missing",) if "missing" in routes.values() else ()
+    next_skill = (
+        "start"
+        if wayfinding
+        else "advanced-user-input"
+        if request.material_decision_missing
+        else "shape"
+        if request.new_outcome or request.material_rescope
+        else None
     )
-    blockers = ("method_capability_missing",) if missing_method else ()
     return TrussPlan(
-        "governed",
-        tuple(layers),
-        request.material_decision_missing,
-        blockers,
+        "governed", tuple(layers), request.material_decision_missing,
+        blockers, next_skill, routes,
+    )
+
+
+def is_wayfinder_issue(body: str) -> bool:
+    headings = tuple(value.strip().casefold() for value in re.findall(r"(?m)^##\s+(.+?)\s*$", body))
+    return headings == ("question",) or headings == (
+        "destination", "notes", "decisions so far", "not yet specified", "out of scope"
     )
 
 
@@ -262,13 +315,14 @@ class OutcomeSnapshot:
 
     @classmethod
     def from_mapping(cls, data: Mapping[str, Any]) -> "OutcomeSnapshot":
+        children = (Issue.from_mapping(value) for value in data.get("children", []))
         return cls(
             authoritative=_bool(data, "authoritative"),
             observed_at=str(data.get("observed_at") or ""),
             repository=str(data["repository"]),
             issue=Issue.from_mapping(data["issue"]),
             assignees=tuple(str(value) for value in data.get("assignees", [])),
-            children=tuple(Issue.from_mapping(value) for value in data.get("children", [])),
+            children=tuple(child for child in children if not is_wayfinder_issue(child.body)),
             blocked_by=tuple(Issue.from_mapping(value) for value in data.get("blocked_by", [])),
             blocking=tuple(Issue.from_mapping(value) for value in data.get("blocking", [])),
             closing_prs=tuple(PullRequest.from_mapping(value) for value in data.get("closing_prs", [])),
@@ -566,7 +620,7 @@ def load_contract(path: Path) -> dict[str, Any]:
     if type(data["version"]) is not int or data["version"] != 2:
         raise ValueError("contract version must be 2")
     expected = {
-        "public_skill": "start",
+        "public_skills": list(PUBLIC_SKILLS),
         "skills": list(SKILLS),
         "hard_triggers": list(HARD_TRIGGERS),
         "root_issue_sections": list(ROOT_ISSUE_SECTIONS),

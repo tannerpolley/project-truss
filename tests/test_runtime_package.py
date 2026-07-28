@@ -19,8 +19,8 @@ from scripts.lib.package_provenance import (
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SKILLS = {"start", "shape", "resolve", "close", "advanced-user-input"}
-PROMPT = "Use $project-truss:start only for explicit or hard-trigger governed work; ordinary coding stays direct."
+SKILLS = {"setup", "start", "shape", "resolve", "close", "advanced-user-input"}
+PROMPT = "Use $project-truss:setup once per repository, then $project-truss:start as the only ongoing engineering entrypoint."
 
 
 class RuntimePackageTests(unittest.TestCase):

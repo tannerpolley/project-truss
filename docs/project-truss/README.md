@@ -1,24 +1,37 @@
 # Project Truss runtime contract
 
-Project Truss is a Matt-first coordination layer for coding outcomes that need durable continuity. Ordinary work remains direct. Governed work uses GitHub issues and native relationships, Git, pull requests, CI, and current worktrees as lifecycle truth.
+Project Truss is the sole user-facing facade for Matt-first engineering and GitHub-native coordination. Invoke `project-truss:setup` once per repository, then use `project-truss:start` for ongoing work. Ordinary work remains direct. Governed work uses GitHub issues and native relationships, Git, pull requests, CI, and current worktrees as lifecycle truth.
+
+Commands below use `PROJECT_TRUSS_ROOT` for the absolute installed plugin root, resolved from the active Project Truss skill location.
 
 ## Entry and stages
 
-`start` calls `scripts/project-truss.sh -Action Plan` and routes one outcome:
+`setup` inspects repository truth, proposes the smallest Matt-compatible configuration, confirms material choices, and applies it idempotently:
+
+```bash
+"$PROJECT_TRUSS_ROOT/scripts/project-truss.sh" -Action Setup -RepoRoot . \
+  -SetupJson '{"repository":"OWNER/REPO","instruction_file":"AGENTS.md","domain_layout":"single-context","triage_enabled":true,"available_methods":[]}'
+```
+
+It preserves unrelated instructions and writes one managed Agent skills block plus the selected `docs/agents/` files. It does not create lifecycle state.
+
+`start` calls `"$PROJECT_TRUSS_ROOT/scripts/project-truss.sh" -Action Plan` and routes one outcome without requiring the user to name internal skills:
 
 - `shape` grills when required and publishes Matt root/leaf contracts directly to GitHub;
 - `resolve` claims one explicit singleton or multi-leaf atomic set in one worktree, branch, and pull request;
 - `close` runs shared Standards review, per-ticket Spec review, verification, merge, and roll-up;
 - `advanced-user-input` handles only material decisions or authority.
 
-Before governed work, Start verifies the repository's Matt setup and required skill capabilities. Missing capability is `method_capability_missing`. Direct work is not blocked.
+Before governed work, Start verifies repository setup and required method capabilities. Missing setup routes to Setup. Each method is reported as `invocable`, `facaded`, `missing`, or `not_triggered`; only a triggered `missing` method blocks governed work. Direct work is not blocked.
+
+Wayfinder is a facaded, pre-Shape decision method for outcomes that exceed one safe context. Its map and `## Question` tickets are source context only. Shape creates fresh Project Truss root and leaf issues; Wayfinder metadata never becomes lifecycle evidence.
 
 ## Git synchronization
 
 Resolve prepares its implementation base from live Git state before creating a branch or worktree:
 
 ```bash
-scripts/project-truss.sh -Action Prepare -RepoRoot .
+"$PROJECT_TRUSS_ROOT/scripts/project-truss.sh" -Action Prepare -RepoRoot .
 ```
 
 Prepare parses current worktrees and tracking configuration to identify the canonical checkout, primary remote, and remote default branch without assuming `origin` or `main`. It requires the canonical checkout to be clean and on that default branch, fetches only the primary remote with pruning, performs a fast-forward-only merge, and requires the local and remote-tracking heads to match. The returned full `implementation_base` is captured only after synchronization.
@@ -67,7 +80,7 @@ An optional GitHub Project projection requires an explicit owner and project num
 The public Project action executes and verifies one membership at a time:
 
 ```bash
-scripts/project-truss.sh -Action Project -ProjectionJson '{"owner":"OWNER","project":7,"url":"ISSUE_OR_PR_URL","ensure":true}'
+"$PROJECT_TRUSS_ROOT/scripts/project-truss.sh" -Action Project -ProjectionJson '{"owner":"OWNER","project":7,"url":"ISSUE_OR_PR_URL","ensure":true}'
 ```
 
 ## Closeout
@@ -77,7 +90,7 @@ Close reviews Standards once over the shared diff and Spec once per selected lea
 After GitHub confirms the pull request merged and its remote head branch is deleted, Close returns to the clean canonical default checkout and runs:
 
 ```bash
-scripts/project-truss.sh -Action Cleanup -RepoRoot . -Repository OWNER/REPO \
+"$PROJECT_TRUSS_ROOT/scripts/project-truss.sh" -Action Cleanup -RepoRoot . -Repository OWNER/REPO \
   -CleanupJson '{"pull_request":123,"branch":"codex/issue-123","worktree":"/absolute/outcome-worktree","cleanup_authorized":true}'
 ```
 

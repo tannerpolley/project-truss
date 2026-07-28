@@ -5,11 +5,11 @@ from scripts.lib.skill_slimming import validate_skill_slimming
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SKILLS = {"start", "shape", "resolve", "close", "advanced-user-input"}
+SKILLS = {"setup", "start", "shape", "resolve", "close", "advanced-user-input"}
 
 
 class SkillSlimmingTests(unittest.TestCase):
-    def test_exact_five_skill_surface_is_compact_and_matt_first(self):
+    def test_exact_six_skill_surface_is_compact_and_matt_first(self):
         skill_files = sorted((ROOT / "skills").glob("*/SKILL.md"))
         self.assertEqual(SKILLS, {path.parent.name for path in skill_files})
         self.assertLessEqual(
@@ -31,10 +31,11 @@ class SkillSlimmingTests(unittest.TestCase):
 
         findings, metrics = validate_skill_slimming(ROOT)
         self.assertEqual([], findings)
-        self.assertEqual(5, metrics["skill_count"])
+        self.assertEqual(6, metrics["skill_count"])
 
     def test_each_lifecycle_owner_has_one_clear_responsibility(self):
         expected = {
+            "setup": ("SetupJson", "facaded", "docs/agents"),
             "start": ("direct", "governed", "method_capability_missing"),
             "shape": ("Problem Statement", "descriptive", "gh project"),
             "resolve": ("ResolutionJson", "assignee", "hidden worktree", "TDD"),

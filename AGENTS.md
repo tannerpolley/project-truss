@@ -19,6 +19,10 @@ Repository Profile: application-development
 
 ## Agent skills
 
+### Project Truss entrypoint
+
+Use `project-truss:setup` once to establish Matt-compatible repository guidance, then `project-truss:start` for engineering work. Start routes internal Truss stages and Matt methods; callers do not invoke those implementation skills directly.
+
 ### Issue tracker
 
 Governed work uses GitHub Issues in `tannerpolley/project-truss` through the `gh` CLI. See `docs/agents/issue-tracker.md`.

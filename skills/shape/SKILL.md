@@ -7,9 +7,11 @@ description: Use when a governed outcome needs the smallest executable native Gi
 
 Apply `docs/project-truss/contract.yml`. New outcomes and material rescope require grilling before publication. Once shared understanding exists, publish directly to GitHub; do not create a local planning gate or lifecycle mirror.
 
+If Start supplies a completed facaded Wayfinder map, read it as decision context and link it under `Further Notes` when useful. Create fresh Project Truss root and leaf issues. Never reuse Wayfinder questions as execution tickets or infer Truss state from their labels, assignees, comments, or closure.
+
 ## Publish Matt contracts
 
-Run `scripts/project-truss.sh -Action Plan` with verified Matt capabilities before writing.
+Run `"$PROJECT_TRUSS_ROOT/scripts/project-truss.sh" -Action Plan` with verified Matt capabilities before writing.
 
 - A root spec uses `Problem Statement`, `Solution`, `User Stories`, `Implementation Decisions`, `Testing Decisions`, `Out of Scope`, and `Further Notes`.
 - A leaf ticket uses `Parent`, `What to build`, `Acceptance criteria`, and `Blocked by`.
@@ -35,6 +37,6 @@ gh project item-list PROJECT --owner OWNER --format json --limit 1000
 gh project item-add PROJECT --owner OWNER --url ISSUE_URL --format json
 ```
 
-For each root or leaf URL, call `scripts/project-truss.sh -Action Project -ProjectionJson '{"owner":"OWNER","project":PROJECT,"url":"URL","ensure":true}'`. It pre-reads membership, adds only a missing item, re-reads, and fails on truncated output. Record exactly one returned `GitHub Project projection: CANONICAL_URL` line under the root's `Further Notes`. Do not create Projects, change fields or Status, remove items, or use Project metadata in lifecycle derivation.
+For each root or leaf URL, call `"$PROJECT_TRUSS_ROOT/scripts/project-truss.sh" -Action Project -ProjectionJson '{"owner":"OWNER","project":PROJECT,"url":"URL","ensure":true}'`. It pre-reads membership, adds only a missing item, re-reads, and fails on truncated output. Record exactly one returned `GitHub Project projection: CANONICAL_URL` line under the root's `Further Notes`. Do not create Projects, change fields or Status, remove items, or use Project metadata in lifecycle derivation.
 
 Missing native commands, access, OAuth scope, complete structured output, or verified membership produces `github_capability_missing` with safe remediation. Never run `gh auth refresh -h github.com -s project` without separate user approval.
