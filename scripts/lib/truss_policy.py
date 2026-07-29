@@ -92,7 +92,6 @@ class WorkRequest:
     failed_gate: str = ""
     required_methods: tuple[str, ...] = ()
     available_methods: tuple[str, ...] = ()
-
     @classmethod
     def from_mapping(cls, data: Mapping[str, Any]) -> "WorkRequest":
         values = _strict_mapping(data, set(cls.__dataclass_fields__), "work request")

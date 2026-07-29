@@ -5,6 +5,7 @@ Project Truss coordinates durable coding outcomes without replacing engineering 
 ## Core language
 
 - **Direct work:** work that can safely complete without durable Truss coordination.
+- **Standalone pull request:** an existing PR with no matching canonical Project Truss resolution receipt (the claim record); it remains direct through review, merge, and cleanup.
 - **Facade:** the public Project Truss entrypoints that hide internal Truss stages and Matt method selection.
 - **Continuation loop:** Start's repeated observation and routing from authoritative state until direct completion, intentional handoff, a named blocker, or verified closeout.
 - **Grill with docs:** the facaded Matt engineering interview composed from model-invocable grilling and active domain modeling.
@@ -28,6 +29,7 @@ Project Truss coordinates durable coding outcomes without replacing engineering 
 - GitHub, Git, CI, and current worktrees are authoritative.
 - Users invoke only Project Truss Setup and Start; Truss owns internal stage and method routing.
 - Every unfinished governed state has a next action, and every internal stage returns control to Start.
+- Absence of a governed resolution claim keeps a standalone PR direct; Truss never synthesizes missing leaf state for it.
 - New governed outcomes and material rescope require at least one grilling decision and explicit shared-understanding confirmation before Shape.
 - Command-only Matt contracts are reported as facaded, never falsely claimed as invoked skills.
 - Decision maps and their question tickets never become Project Truss execution issues.

@@ -24,6 +24,8 @@ It preserves unrelated instructions and writes one managed Agent skills block pl
 
 Before governed work, Start verifies repository setup and required method capabilities. Missing setup routes to Setup. Each method is reported as `invocable`, `facaded`, `missing`, or `not_triggered`; only a triggered `missing` method blocks governed work. Direct work is not blocked.
 
+For an existing PR, Start runs Plan with `-Repository OWNER/REPO -PullRequest N`. Plan reads the PR's linked closing issues and canonical resolution receipts from live GitHub. No matching receipt means ordinary review, merge authority, and safe Git cleanup without Shape, Resolve, Close, a synthetic leaf, or `ResolutionJson`; a matching receipt retains the full governed lifecycle. Unavailable or malformed evidence blocks.
+
 Plan infers current Matt shaping, quality, and repository-profile methods. New outcomes and material rescope facade upstream `grill-with-docs` by invoking `grilling` with active `domain-modeling`; at least one one-at-a-time decision and explicit shared-understanding confirmation are required before Shape. Governed code requires code review, surface minimization, and cutthroat cleanup. Stable behavior requires TDD, while scientific-computing code additionally requires `scientific-coding-and-testing`.
 
 Every governed Plan has a non-null `next_action`. After each internal stage, Start re-reads authoritative Status and continues. Failed verification, CI, or review routes through diagnosis, repair, and retry. Intermediate publication, implementation, PR, CI, review, merge, and cleanup-preparation states are never completion.
@@ -89,7 +91,7 @@ The public Project action executes and verifies one membership at a time:
 
 ## Closeout
 
-Close reviews Standards once over the shared diff and Spec once per selected leaf. It requires matching receipts, checked acceptance, one shared PR/head, successful completed CI, clear review state, healthy integration, and clean source state. After merge, every selected leaf must derive Done before the root or milestone closes.
+For governed resolutions, Close reviews Standards once over the shared diff and Spec once per selected leaf. It requires matching receipts, checked acceptance, one shared PR/head, successful completed CI, clear review state, healthy integration, and clean source state. After merge, every selected leaf must derive Done before the root or milestone closes.
 
 After GitHub confirms the pull request merged and its remote head branch is deleted, Close returns to the clean canonical default checkout and runs:
 

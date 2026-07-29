@@ -5,7 +5,7 @@ description: Use when Project Truss must review, verify, merge, roll up, and ret
 
 # Project Truss Close
 
-Apply `docs/project-truss/contract.yml`. Re-read every selected leaf, canonical receipt, assignee, dependency, human comment, closing pull request, review state, check run, current head, worktree, and optional Project target.
+Apply `docs/project-truss/contract.yml`. Close governs only a claimed leaf or resolution-set PR. A standalone PR without a Truss resolution receipt stays direct and may be reviewed, merged, and safely cleaned without `ResolutionJson`; return it to Start's direct route. For governed work, re-read every selected leaf, canonical receipt, assignee, dependency, human comment, closing pull request, review state, check run, current head, worktree, and optional Project target.
 
 ## Two-axis review
 
@@ -16,7 +16,7 @@ Use Matt `code-review` against the recorded implementation base:
 
 Do not merge with unresolved findings. A missing required review method is `method_capability_missing`.
 
-## Prove and merge the set
+## Prove and merge the governed resolution
 
 Run repository-profile-selected verification and the full test suite. Require one shared pull request and head SHA, checked acceptance on every leaf, completed successful CI, no changes requested, a clean source tree, healthy integration, one owner, and matching receipts everywhere. Re-run `Resolve` with the pull-request number and `-RequireRecorded true`, then run set-level Closeout health bound to the pull-request head.
 

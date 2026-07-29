@@ -2,8 +2,6 @@ import unittest
 from pathlib import Path
 
 from scripts.lib.skill_slimming import validate_skill_slimming
-
-
 ROOT = Path(__file__).resolve().parents[1]
 SKILLS = {"setup", "start", "shape", "resolve", "close", "advanced-user-input"}
 
@@ -36,20 +34,18 @@ class SkillSlimmingTests(unittest.TestCase):
     def test_each_lifecycle_owner_has_one_clear_responsibility(self):
         expected = {
             "setup": ("SetupJson", "facaded", "docs/agents"),
-            "start": ("grill-with-docs", "Continuation loop", "method_capability_missing"),
+            "start": ("grill-with-docs", "existing pull request", "method_capability_missing"),
             "shape": ("Problem Statement", "descriptive", "gh project"),
             "resolve": ("ResolutionJson", "assignee", "hidden worktree", "return to Start"),
-            "close": ("Standards", "Spec", "pull request", "Return to Start"),
+            "close": ("Standards", "governed resolution", "pull request", "Return to Start"),
         }
         for name, phrases in expected.items():
             text = (ROOT / "skills" / name / "SKILL.md").read_text(encoding="utf-8")
             for phrase in phrases:
                 self.assertIn(phrase, text, f"{name}: {phrase}")
             self.assertIn("docs/project-truss/contract.yml", text, name)
-        start = (ROOT / "skills/start/SKILL.md").read_text(encoding="utf-8")
         for premature_stop in ("issue publication", "PR creation", "CI completion", "merge", "pre-cleanup"):
-            self.assertIn(premature_stop, start)
-
+            self.assertIn(premature_stop, (ROOT / "skills/start/SKILL.md").read_text(encoding="utf-8"))
     def test_projects_and_labels_are_projection_not_lifecycle_state(self):
         shape = (ROOT / "skills/shape/SKILL.md").read_text(encoding="utf-8")
         for command in ("gh project view", "gh project item-list", "gh project item-add"):
