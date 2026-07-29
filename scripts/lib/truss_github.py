@@ -9,9 +9,9 @@ import subprocess
 from typing import Any, Callable, Mapping
 
 try:
-    from .truss_policy import OutcomeSnapshot, derive_state
+    from .truss_policy import OutcomeSnapshot, ResolutionReceipt, derive_state
 except ImportError:  # public dispatcher imports scripts/lib as a top-level path
-    from truss_policy import OutcomeSnapshot, derive_state
+    from truss_policy import OutcomeSnapshot, ResolutionReceipt, derive_state
 
 
 API_VERSION = "2026-03-10"
@@ -151,6 +151,25 @@ class GitHubClient:
             return {"project_url": view["url"], "item_url": target.url, "member": member}
         except GitHubObservationError as exc:
             raise GitHubObservationError("github_capability_missing", str(exc)) from exc
+
+    def pull_request_is_governed(self, repository: str, number: int) -> bool:
+        if len(repository.split("/")) != 2 or not all(repository.split("/")) or type(number) is not int or number < 1:
+            raise ValueError("repository must be OWNER/REPO and pull request must be a positive integer")
+        payload = self._json(["gh", "pr", "view", str(number), "--repo", repository,
+                              "--json", "number,headRefName,closingIssuesReferences"])
+        if not isinstance(payload, Mapping) or not {"number", "headRefName", "closingIssuesReferences"}.issubset(payload):
+            raise GitHubObservationError("github_capability_missing", "pull request fields are incomplete")
+        refs, branch = payload["closingIssuesReferences"], payload["headRefName"]
+        if payload["number"] != number or not isinstance(branch, str) or not isinstance(refs, list):
+            raise GitHubObservationError("github_capability_missing", "pull request identity is malformed")
+        for ref in refs:
+            issue = ref.get("number") if isinstance(ref, Mapping) else None
+            if type(issue) is not int:
+                raise GitHubObservationError("github_capability_missing", "closing issue identity is missing")
+            for comment in self.snapshot(repository, issue).comments:
+                receipt = ResolutionReceipt.from_comment(comment.body)
+                if receipt and comment.author == receipt.owner and issue in receipt.issues and receipt.branch == branch and receipt.pull_request in (None, number): return True
+        return False
     @staticmethod
     def _connection(issue: Mapping[str, Any], name: str) -> list[Mapping[str, Any]]:
         value = issue.get(name)
@@ -165,8 +184,7 @@ class GitHubClient:
 
     @staticmethod
     def _issue(node: Mapping[str, Any]) -> dict[str, Any]:
-        required = {"number", "title", "state", "url"}
-        if not required.issubset(node):
+        if not {"number", "title", "state", "url"}.issubset(node):
             raise GitHubObservationError("github_capability_missing", "issue relation fields are incomplete")
         return {
             "number": node["number"],
@@ -180,18 +198,9 @@ class GitHubClient:
         number = reference.get("number")
         if type(number) is not int:
             raise GitHubObservationError("github_capability_missing", "closing pull request number is missing")
-        payload = self._json(
-            [
-                "gh",
-                "pr",
-                "view",
-                str(number),
-                "--repo",
-                repository,
-                "--json",
-                PR_FIELDS,
-            ]
-        )
+        payload = self._json([
+            "gh", "pr", "view", str(number), "--repo", repository, "--json", PR_FIELDS,
+        ])
         required = {"number", "state", "mergedAt", "statusCheckRollup", "reviewDecision", "url", "headRefOid"}
         if not isinstance(payload, Mapping) or not required.issubset(payload):
             raise GitHubObservationError("github_capability_missing", f"pull request #{number} fields are incomplete")
@@ -211,14 +220,9 @@ class GitHubClient:
                 successful &= check.get("state") == "SUCCESS"
         state = str(payload["state"]).upper()
         return {
-            "number": payload["number"],
-            "state": state,
-            "url": payload["url"],
-            "merged": state == "MERGED" and bool(payload["mergedAt"]),
-            "merged_at": payload["mergedAt"],
-            "head_sha": payload["headRefOid"],
-            "checks_complete": complete,
-            "checks_successful": successful,
+            "number": payload["number"], "state": state, "url": payload["url"],
+            "merged": state == "MERGED" and bool(payload["mergedAt"]), "merged_at": payload["mergedAt"],
+            "head_sha": payload["headRefOid"], "checks_complete": complete, "checks_successful": successful,
             "review_decision": payload["reviewDecision"] or "",
         }
 
@@ -229,21 +233,10 @@ class GitHubClient:
         parts = repository.split("/")
         if len(parts) != 2 or not all(parts) or type(issue_number) is not int or issue_number < 1:
             raise ValueError("repository must be OWNER/REPO and issue must be a positive integer")
-        payload = self._json(
-            [
-                "gh",
-                "api",
-                "graphql",
-                "-f",
-                f"query={ISSUE_QUERY}",
-                "-F",
-                f"owner={parts[0]}",
-                "-F",
-                f"repo={parts[1]}",
-                "-F",
-                f"number={issue_number}",
-            ]
-        )
+        payload = self._json([
+            "gh", "api", "graphql", "-f", f"query={ISSUE_QUERY}",
+            "-F", f"owner={parts[0]}", "-F", f"repo={parts[1]}", "-F", f"number={issue_number}",
+        ])
         if not isinstance(payload, Mapping) or payload.get("errors"):
             raise GitHubObservationError("github_capability_missing", "GraphQL returned errors")
         try:
@@ -253,12 +246,9 @@ class GitHubClient:
         required = {"number", "title", "state", "body", "url", "updatedAt", "assignees", "milestone", "parent", "subIssues", "blockedBy", "blocking", "closedByPullRequestsReferences", "comments"}
         if not isinstance(node, Mapping) or not required.issubset(node):
             raise GitHubObservationError("github_capability_missing", "issue fields are incomplete")
-        assignees = self._connection(node, "assignees")
-        children = self._connection(node, "subIssues")
-        blocked_by = self._connection(node, "blockedBy")
-        blocking = self._connection(node, "blocking")
-        pr_refs = self._connection(node, "closedByPullRequestsReferences")
-        comments = self._connection(node, "comments")
+        assignees, children = self._connection(node, "assignees"), self._connection(node, "subIssues")
+        blocked_by, blocking = self._connection(node, "blockedBy"), self._connection(node, "blocking")
+        pr_refs, comments = self._connection(node, "closedByPullRequestsReferences"), self._connection(node, "comments")
         assignee_logins = []
         for value in assignees:
             login = value.get("login") if isinstance(value, Mapping) else None
@@ -273,10 +263,8 @@ class GitHubClient:
         for value in [*children, *blocked_by, *blocking, *pr_refs, *comments]:
             if isinstance(value, Mapping) and value.get("url"):
                 urls.append(str(value["url"]))
-        if parent:
-            urls.append(parent["url"])
-        if milestone:
-            urls.append(milestone["url"])
+        if parent: urls.append(parent["url"])
+        if milestone: urls.append(milestone["url"])
         child_issues = []
         for value in children:
             child = self._issue(value)

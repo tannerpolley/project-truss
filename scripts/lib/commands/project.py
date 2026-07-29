@@ -144,8 +144,21 @@ def command_project_truss(ctx: Context, args: dict[str, Any]) -> int:
     action = str(arg_value(args, "Action", default="")).title()
     if action == "Plan":
         request, _ = read_json_arg(root, args, "RequestJson", "RequestPath", required=False)
-        result = plan_work(WorkRequest.from_mapping(request or {})).to_dict()
-        return emit({"ok": True, "action": action, "source": "policy", **result})
+        work = WorkRequest.from_mapping(request or {})
+        repository, pull_request = str(arg_value(args, "Repository", default="")), arg_value(args, "PullRequest")
+        if bool(repository) != (pull_request not in (None, "")):
+            raise ScriptError("Repository and PullRequest must be provided together")
+        if repository:
+            try:
+                number = int(pull_request)
+            except (TypeError, ValueError) as exc:
+                raise ScriptError("PullRequest must be a positive integer") from exc
+            if number < 1:
+                raise ScriptError("PullRequest must be a positive integer")
+            governed = GitHubClient().pull_request_is_governed(repository, number)
+            work = WorkRequest.from_mapping({**(request or {}), "merge_or_publication": True}) if governed else WorkRequest()
+        result = plan_work(work).to_dict()
+        return emit({"ok": True, "action": action, "source": "live" if repository else "policy", **result})
     if action == "Setup":
         _require_attached_cwd(ctx, root, action)
         setup, _ = read_json_arg(root, args, "SetupJson", "SetupPath")

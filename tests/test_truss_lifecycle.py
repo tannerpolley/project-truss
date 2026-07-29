@@ -21,9 +21,8 @@ from scripts.lib.truss_policy import (
     load_contract,
     parse_issue_contract,
     plan_work,
+    ResolutionReceipt,
 )
-
-
 ROOT = Path(__file__).resolve().parents[1]
 ROOT_BODY = """## Problem Statement
 
@@ -71,8 +70,6 @@ Ship one useful behavior through the public lifecycle interface.
 None — can start immediately.
 """
 VALID_BODY = LEAF_BODY
-
-
 def passing_pr(number=120, head="abc123"):
     return {
         "number": number,
@@ -85,8 +82,6 @@ def passing_pr(number=120, head="abc123"):
         "checks_successful": True,
         "review_decision": "APPROVED",
     }
-
-
 def snapshot(**overrides):
     data = {
         "authoritative": True,
@@ -110,8 +105,11 @@ def snapshot(**overrides):
     }
     data.update(overrides)
     return OutcomeSnapshot.from_mapping(data)
-
-
+def invoke(ctx, args):
+    output = StringIO()
+    with redirect_stdout(output):
+        code = command_project_truss(ctx, args)
+    return code, json.loads(output.getvalue())
 class DirectAndShapeTests(unittest.TestCase):
     def test_direct_work_has_no_truss_structure(self):
         result = plan_work(WorkRequest())
@@ -275,8 +273,6 @@ class LifecycleAndDigestTests(unittest.TestCase):
         self.assertEqual([129], [item["number"] for item in parent_digest.ready_frontier])
         self.assertEqual(["child #130 is Blocked"], list(parent_digest.blockers_or_decisions))
         self.assertEqual("Claim ready child #129 before implementation.", parent_digest.next_safe_action)
-
-
 class TruthfulCloseoutTests(unittest.TestCase):
     def test_status_requires_an_implementation_base_after_claim(self):
         current = snapshot(assignees=["one"])
@@ -294,19 +290,13 @@ class TruthfulCloseoutTests(unittest.TestCase):
             root = Path(directory)
             ctx = Context(ROOT / "scripts/project-truss.sh", ROOT, "scripts/project-truss.sh", "project-truss.sh", [], invocation_cwd=root)
 
-            def status():
-                output = StringIO()
-                with redirect_stdout(output):
-                    code = command_project_truss(ctx, {"Action": "Status", "Repository": "owner/repo", "Issue": 129})
-                return code, json.loads(output.getvalue())
-
             with patch("scripts.lib.commands.project.GitHubClient") as github:
                 github.return_value.snapshot.return_value = current
                 (root / "docs/legacy-workflow/specs").mkdir(parents=True)
                 (root / "docs/legacy-workflow/plans/nested").mkdir(parents=True)
                 (root / "docs/legacy-workflow/specs/feature.md").write_text("working spec", encoding="utf-8")
                 (root / "docs/legacy-workflow/plans/nested/steps.md").write_text("working plan", encoding="utf-8")
-                code, payload = status()
+                code, payload = invoke(ctx, {"Action": "Status", "Repository": "owner/repo", "Issue": 129})
 
         self.assertEqual((0, [129], "start"), (code, [item["number"] for item in payload["ready_frontier"]], payload["next_skill"]))
         self.assertNotIn("unretired_artifacts", payload)
@@ -326,11 +316,9 @@ class TruthfulCloseoutTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             ctx = Context(ROOT / "scripts/project-truss.sh", ROOT, "scripts/project-truss.sh", "project-truss.sh", [], invocation_cwd=root)
-            output = StringIO()
-            with patch("scripts.lib.commands.project.GitHubClient") as github, redirect_stdout(output):
+            with patch("scripts.lib.commands.project.GitHubClient") as github:
                 github.return_value.snapshot.return_value = current
-                code = command_project_truss(ctx, {"Action": "Status", "Repository": "owner/repo", "Issue": 129})
-            payload = json.loads(output.getvalue())
+                code, payload = invoke(ctx, {"Action": "Status", "Repository": "owner/repo", "Issue": 129})
 
         self.assertEqual(0, code)
         self.assertEqual(
@@ -384,16 +372,14 @@ class TruthfulCloseoutTests(unittest.TestCase):
             root = Path(directory)
             ctx = Context(ROOT / "scripts/project-truss.sh", ROOT, "scripts/project-truss.sh", "project-truss.sh", [], invocation_cwd=root)
 
-            output = StringIO()
-            with patch("scripts.lib.commands.project.GitHubClient") as github, redirect_stdout(output):
+            with patch("scripts.lib.commands.project.GitHubClient") as github:
                 github.return_value.snapshot.return_value = current
-                code = command_project_truss(ctx, {
+                code, payload = invoke(ctx, {
                     "Action": "Closeout",
                     "Repository": "owner/repo",
                     "Issue": 128,
                     "HealthJson": health,
                 })
-            payload = json.loads(output.getvalue())
 
         self.assertEqual((0, []), (code, payload["findings"]))
         self.assertNotIn("unretired_artifacts", payload)
@@ -490,8 +476,6 @@ class TruthfulCloseoutTests(unittest.TestCase):
             issue={"number": 129, "title": "core", "state": "CLOSED", "body": VALID_BODY, "url": "https://github.example/issues/129"},
             assignees=["one"], closing_prs=[passing_pr()],
         ), FinalHealth(True, True, False, "abc123", review_passed=True)))
-
-
 class GitHubObservationTests(unittest.TestCase):
     def test_live_provider_reads_relationships_pr_checks_and_source_urls(self):
         issue_payload = {
@@ -604,6 +588,21 @@ class LauncherTests(unittest.TestCase):
         recovery = launch({"explicit": True, "matt_configured": True, "failed_gate": "review",
                            "available_methods": ["diagnosing-bugs"]})
         self.assertEqual("invocable", recovery["method_routes"]["diagnosing-bugs"])
+
+    def test_plan_routes_existing_pr_from_live_receipt_evidence(self):
+        ctx = Context(ROOT / "scripts/project-truss.sh", ROOT, "", "", [], invocation_cwd=ROOT)
+        payload = {"number": 7, "headRefName": "codex/issue-129", "closingIssuesReferences": [{"number": 129}]}
+        client = GitHubClient(runner=lambda *_: SimpleNamespace(returncode=0, stdout=json.dumps(payload), stderr=""))
+        receipt = ResolutionReceipt((129,), "one", "a" * 40, "codex/issue-129", "/tmp/worktree", 7)
+        claimed = lambda value, author="one": snapshot(comments=[{"body": value.comment(), "author": author}])
+        stale = ResolutionReceipt((129,), "one", "a" * 40, "codex/issue-129", "/tmp/worktree", 8)
+        cases = ((snapshot(), "direct"), (claimed(receipt), "governed"),
+                 (claimed(stale), "direct"), (claimed(receipt, "other"), "direct"))
+        for current, expected in cases:
+            with patch.object(client, "snapshot", return_value=current), \
+                    patch("scripts.lib.commands.project.GitHubClient", return_value=client):
+                _, result = invoke(ctx, {"Action": "Plan", "Repository": "owner/repo", "PullRequest": 7})
+            self.assertEqual((expected, "live"), (result["lane"], result["source"]))
 
 
 if __name__ == "__main__":

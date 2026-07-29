@@ -15,7 +15,7 @@ Run `"$PROJECT_TRUSS_ROOT/scripts/project-truss.sh" -Action Plan` with verified 
 
 - A root spec uses `Problem Statement`, `Solution`, `User Stories`, `Implementation Decisions`, `Testing Decisions`, `Out of Scope`, and `Further Notes`.
 - A leaf ticket uses `Parent`, `What to build`, `Acceptance criteria`, and `Blocked by`.
-- One mergeable unit needs one leaf and its pull request.
+- One governed mergeable unit needs one leaf and its pull request; a standalone PR remains direct.
 - Independent units need one root with native sub-issues and only real blocked-by edges.
 - Add a milestone only for a coordinated release, deadline, or cross-issue health target.
 
