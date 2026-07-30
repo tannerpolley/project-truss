@@ -1,4 +1,4 @@
-"""Idempotent repository configuration for the Project Truss facade."""
+"""Idempotent repository configuration for Project Truss."""
 from __future__ import annotations
 
 from dataclasses import dataclass

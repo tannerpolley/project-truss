@@ -23,11 +23,11 @@ SKILLS = {"setup", "start", "shape", "resolve", "close", "advanced-user-input"}
 
 
 class InstalledProjectTrussTests(unittest.TestCase):
-    def test_installed_surface_has_two_public_entrypoints_and_five_scenarios(self):
+    def test_installed_surface_has_six_callable_skills_and_five_scenarios(self):
         manifest = json.loads((PLUGIN_ROOT / ".codex-plugin" / "plugin.json").read_text(encoding="utf-8"))
         self.assertEqual(("project-truss", "2.0.0"), (manifest["name"], manifest["version"]))
         self.assertEqual(
-            ["Use $project-truss:setup once per repository, then $project-truss:start as the only ongoing engineering entrypoint."],
+            ["Use $project-truss:start to begin or resume Matt-first work; use $project-truss:setup once per repository and call another Project Truss stage when you intentionally enter it."],
             manifest["interface"]["defaultPrompt"],
         )
         self.assertEqual(SKILLS, {path.parent.name for path in (PLUGIN_ROOT / "skills").glob("*/SKILL.md")})

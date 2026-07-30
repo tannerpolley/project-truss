@@ -18,7 +18,7 @@
   "interface": {
     "displayName": "Project Truss",
     "shortDescription": "Adaptive GitHub coordination for durable coding outcomes.",
-    "longDescription": "Project Truss is the user-facing facade for Matt-first engineering. Setup configures a repository once; Start routes engineering methods and adds the smallest GitHub-native structure needed for durable outcomes and truthful closeout.",
+    "longDescription": "Project Truss coordinates Matt-first engineering directly. Setup configures a repository once; Start begins or resumes work, invokes the relevant Matt disciplines, routes the GitHub-native stages, and continues to truthful closeout.",
     "developerName": "Tanner Polley",
     "category": "Productivity",
     "brandColor": "#0F766E",
@@ -30,7 +30,7 @@
       "Workflow"
     ],
     "defaultPrompt": [
-      "Use $project-truss:setup once per repository, then $project-truss:start as the only ongoing engineering entrypoint."
+      "Use $project-truss:start to begin or resume Matt-first work; use $project-truss:setup once per repository and call another Project Truss stage when you intentionally enter it."
     ]
   }
 }

@@ -20,7 +20,7 @@ from scripts.lib.package_provenance import (
 
 ROOT = Path(__file__).resolve().parents[1]
 SKILLS = {"setup", "start", "shape", "resolve", "close", "advanced-user-input"}
-PROMPT = "Use $project-truss:setup once per repository, then $project-truss:start as the only ongoing engineering entrypoint."
+PROMPT = "Use $project-truss:start to begin or resume Matt-first work; use $project-truss:setup once per repository and call another Project Truss stage when you intentionally enter it."
 
 
 class RuntimePackageTests(unittest.TestCase):

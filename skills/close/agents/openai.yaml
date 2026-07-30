@@ -1,5 +1,5 @@
 interface:
   capabilities: [filesystem.read, filesystem.write, shell, git, github, native.user-input]
   display_name: "Close"
-  short_description: "Review, verify, merge, and roll up one resolution set."
-  default_prompt: "Use $project-truss:close for shared Standards review, per-ticket Spec review, verified merge, and roll-up."
+  short_description: "Review, merge, roll up, and retire an outcome."
+  default_prompt: "Use $project-truss:close for Matt review, evidence verification, merge or roll-up, safe local retirement, and return to Start."

@@ -1,6 +1,6 @@
 ### Project Truss
 
-Users invoke `project-truss:setup` once and `project-truss:start` for ongoing engineering work.
+Use `project-truss:setup` once, then `project-truss:start` to begin or resume Matt-first engineering work. All six Project Truss skills are callable; Start normally invokes the relevant Matt disciplines and routes each stage until verified closeout.
 
 ### Issue tracker
 

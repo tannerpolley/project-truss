@@ -1,6 +1,7 @@
 import unittest
 from pathlib import Path
 
+import yaml
 from scripts.lib.skill_slimming import validate_skill_slimming
 ROOT = Path(__file__).resolve().parents[1]
 SKILLS = {"setup", "start", "shape", "resolve", "close", "advanced-user-input"}
@@ -31,19 +32,24 @@ class SkillSlimmingTests(unittest.TestCase):
         self.assertEqual([], findings)
         self.assertEqual(6, metrics["skill_count"])
 
-    def test_each_lifecycle_owner_has_one_clear_responsibility(self):
-        expected = {
-            "setup": ("SetupJson", "facaded", "docs/agents"),
-            "start": ("grill-with-docs", "existing pull request", "method_capability_missing"),
-            "shape": ("Problem Statement", "descriptive", "gh project"),
-            "resolve": ("ResolutionJson", "assignee", "hidden worktree", "return to Start"),
-            "close": ("Standards", "governed resolution", "pull request", "Return to Start"),
+    def test_metadata_reconstructs_the_matt_first_workflow(self):
+        workflow = {
+            "setup": ("once per repository", "available Matt disciplines", "return to Start"),
+            "start": ("Matt-first", "grilling", "verified closeout"),
+            "shape": ("confirmed Matt", "native GitHub", "return to Start"),
+            "resolve": ("Ready", "Matt TDD", "pull request", "return to Start"),
+            "close": ("Matt review", "merge", "local retirement", "return to Start"),
+            "advanced-user-input": ("native Truss", "bounded question", "record", "return to Start"),
         }
-        for name, phrases in expected.items():
-            text = (ROOT / "skills" / name / "SKILL.md").read_text(encoding="utf-8")
-            for phrase in phrases:
-                self.assertIn(phrase, text, f"{name}: {phrase}")
-            self.assertIn("docs/project-truss/contract.yml", text, name)
+        reconstructed = []
+        for name, phrases in workflow.items():
+            skill = (ROOT / "skills" / name / "SKILL.md").read_text(encoding="utf-8")
+            interface = yaml.safe_load((ROOT / "skills" / name / "agents/openai.yaml").read_text(encoding="utf-8"))["interface"]
+            surface = "\n".join((skill, *(str(interface[field]) for field in ("short_description", "default_prompt")))).casefold()
+            self.assertTrue(all(phrase.casefold() in surface for phrase in phrases), name)
+            self.assertIn("docs/project-truss/contract.yml", skill, name)
+            reconstructed.append(name)
+        self.assertEqual(list(workflow), reconstructed)
         for premature_stop in ("issue publication", "PR creation", "CI completion", "merge", "pre-cleanup"):
             self.assertIn(premature_stop, (ROOT / "skills/start/SKILL.md").read_text(encoding="utf-8"))
     def test_projects_and_labels_are_projection_not_lifecycle_state(self):

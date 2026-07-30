@@ -1,11 +1,11 @@
 ---
 name: setup
-description: Use once per repository, or when its tracker or domain layout changes, to configure Project Truss as the user-facing facade for Matt-backed engineering methods.
+description: Use once per repository, or when tracker or domain docs change, to configure GitHub, Git, and docs, record available Matt disciplines, and return to Start.
 ---
 
 # Project Truss Setup
 
-Apply `docs/project-truss/contract.yml`. This is the only setup skill the user needs to invoke. It adopts Matt's repository-setup contract because `setup-matt-pocock-skills` is command-only; report that method as `facaded`, never invoked.
+Apply `docs/project-truss/contract.yml`. Setup is a callable Truss stage: configure the repository once, record the available Matt disciplines, then return to `project-truss:start`. Do not stop at setup when the user asked for engineering work.
 
 ## Inspect before writing
 
@@ -33,9 +33,8 @@ The Setup action verifies that `RepoRoot`, its GitHub remote, and authenticated 
 
 ## Method truth
 
-- `invocable`: an installed Matt method Truss may use when evidence triggers it.
-- `facaded`: a command-only Matt contract implemented through Truss (`setup-matt-pocock-skills`, `grill-with-docs`, `wayfinder`).
+- `invocable`: an installed Matt method Truss may invoke directly when evidence triggers it.
 - `missing`: a triggered required method that is unavailable; stop as `method_capability_missing`.
 - `not_triggered`: available or known but irrelevant to the current work; do not load it.
 
-Wayfinder decision maps clarify foggy destinations before Shape. They never become Truss execution contracts or lifecycle evidence. Users invoke `project-truss:setup` once and `project-truss:start` thereafter.
+Setup is native Truss configuration, not a Matt method. Wayfinder decision maps are native Truss planning artifacts that clarify foggy destinations before Shape; they never become execution contracts or lifecycle evidence. Return to Start after setup and let Start choose the next stage.

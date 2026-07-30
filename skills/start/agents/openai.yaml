@@ -1,5 +1,5 @@
 interface:
   capabilities: [filesystem.read, shell, github, native.user-input]
   display_name: "Start"
-  short_description: "Classify direct or governed work and own one outcome."
-  default_prompt: "Use $project-truss:start for explicit or hard-trigger governed work; keep ordinary coding direct."
+  short_description: "Begin, grill, route, and finish Matt-first work."
+  default_prompt: "Use $project-truss:start to begin or resume Matt-first work, invoke relevant disciplines, and continue through verified closeout or a named blocker."

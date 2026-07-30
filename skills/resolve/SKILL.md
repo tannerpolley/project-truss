@@ -1,11 +1,11 @@
 ---
 name: resolve
-description: Use when Project Truss should claim and execute one explicitly selected Ready leaf or atomic set in one hidden worktree and pull request.
+description: Use on an explicitly selected Ready leaf or atomic set to claim it, invoke Matt TDD/review disciplines at the approved seams, implement in the attached checkout, and publish one pull request before returning to Start.
 ---
 
 # Project Truss Resolve
 
-Apply `docs/project-truss/contract.yml`. Resolve is Truss's implementation entrypoint and adopts Matt's implement contract: work from published tickets, use TDD at approved public seams, run focused checks continuously, run the full suite once at the end, then perform two-axis review.
+Apply `docs/project-truss/contract.yml`. Resolve is the Truss implementation stage: work from published tickets, invoke Matt TDD and other triggered disciplines directly, run focused checks continuously, run the full suite once at the end, perform two-axis review, and return to Start.
 
 ## Select and preflight
 

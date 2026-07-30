@@ -1,11 +1,11 @@
 ---
 name: close
-description: Use when Project Truss must review, verify, merge, roll up, and retire a governed singleton or resolution set from fresh evidence.
+description: Use after implementation or a pull request to invoke Matt review, verify GitHub/Git/CI evidence, merge or roll up the correct outcome, retire local state safely, and return to Start.
 ---
 
 # Project Truss Close
 
-Apply `docs/project-truss/contract.yml`. Close governs only a claimed leaf or resolution-set PR. A standalone PR without a Truss resolution receipt stays direct and may be reviewed, merged, and safely cleaned without `ResolutionJson`; return it to Start's direct route. For governed work, re-read every selected leaf, canonical receipt, assignee, dependency, human comment, closing pull request, review state, check run, current head, worktree, and optional Project target.
+Apply `docs/project-truss/contract.yml`. Close is the evidence and retirement stage. Governed work requires a claimed leaf or resolution-set PR; an unclaimed standalone PR remains direct and may be reviewed, merged, and safely cleaned without `ResolutionJson`. Invoke Matt `code-review` directly, re-read provider truth, complete the correct merge path, then return to Start.
 
 ## Two-axis review
 

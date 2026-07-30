@@ -1,13 +1,13 @@
 ---
 name: shape
-description: Use when a governed outcome needs the smallest executable native GitHub issue, dependency, parent, milestone, label, or optional Project membership structure.
+description: Use after Start's confirmed Matt grilling/domain modeling to publish the smallest native GitHub root/leaf structure, dependencies, milestone, descriptive labels, or optional Project projection, then return to Start.
 ---
 
 # Project Truss Shape
 
-Apply `docs/project-truss/contract.yml`. New outcomes and material rescope require grilling before publication. Once shared understanding exists, publish directly to GitHub; do not create a local planning gate or lifecycle mirror.
+Apply `docs/project-truss/contract.yml`. Shape is the Truss publication stage after Start's direct Matt grilling and domain modeling. Publish the smallest native GitHub structure, then return to Start; do not create a local planning gate or lifecycle mirror.
 
-If Start supplies a completed facaded Wayfinder map, read it as decision context and link it under `Further Notes` when useful. Create fresh Project Truss root and leaf issues. Never reuse Wayfinder questions as execution tickets or infer Truss state from their labels, assignees, comments, or closure.
+If Start supplies a completed native Wayfinder map, read it as decision context and link it under `Further Notes` when useful. Create fresh Project Truss root and leaf issues. Never reuse Wayfinder questions as execution tickets or infer Truss state from their labels, assignees, comments, or closure.
 
 ## Publish Matt contracts
 
