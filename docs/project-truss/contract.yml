@@ -1,5 +1,5 @@
 version: 2
-public_skills: [setup, start]
+public_skills: [setup, start, shape, resolve, close, advanced-user-input]
 skills: [setup, start, shape, resolve, close, advanced-user-input]
 hard_triggers:
   - explicit

@@ -1,6 +1,6 @@
 # Project Truss runtime contract
 
-Project Truss is the sole user-facing facade for Matt-first engineering and GitHub-native coordination. Invoke `project-truss:setup` once per repository, then use `project-truss:start` for ongoing work. Ordinary work remains direct. Governed work uses GitHub issues and native relationships, Git, pull requests, CI, and current worktrees as lifecycle truth.
+Project Truss directly coordinates Matt-first engineering and GitHub-native outcomes. Invoke `project-truss:setup` once per repository, then use `project-truss:start` for normal work. `shape`, `resolve`, `close`, and `advanced-user-input` are also callable when intentionally entering one stage; each returns control to Start. Ordinary work remains direct. Governed work uses GitHub issues and native relationships, Git, pull requests, CI, and current worktrees as lifecycle truth.
 
 Commands below use `PROJECT_TRUSS_ROOT` for the absolute installed plugin root, resolved from the active Project Truss skill location.
 
@@ -22,15 +22,15 @@ It preserves unrelated instructions and writes one managed Agent skills block pl
 - `close` runs shared Standards review, per-ticket Spec review, verification, merge, and roll-up;
 - `advanced-user-input` handles only material decisions or authority.
 
-Before governed work, Start verifies repository setup and required method capabilities. Missing setup routes to Setup. Each method is reported as `invocable`, `facaded`, `missing`, or `not_triggered`; only a triggered `missing` method blocks governed work. Direct work is not blocked.
+Before governed work, Start verifies repository setup and required method capabilities. Missing setup routes to Setup. Each method is reported as `invocable`, `missing`, or `not_triggered`; only a triggered `missing` method blocks governed work. Direct work is not blocked.
 
 For an existing PR, Start runs Plan with `-Repository OWNER/REPO -PullRequest N`. Plan reads the PR's linked closing issues and canonical resolution receipts from live GitHub. No matching receipt means ordinary review, merge authority, and safe Git cleanup without Shape, Resolve, Close, a synthetic leaf, or `ResolutionJson`; a matching receipt retains the full governed lifecycle. Unavailable or malformed evidence blocks.
 
-Plan infers current Matt shaping, quality, and repository-profile methods. New outcomes and material rescope facade upstream `grill-with-docs` by invoking `grilling` with active `domain-modeling`; at least one one-at-a-time decision and explicit shared-understanding confirmation are required before Shape. Governed code requires code review, surface minimization, and cutthroat cleanup. Stable behavior requires TDD, while scientific-computing code additionally requires `scientific-coding-and-testing`.
+Plan infers current Matt shaping, quality, and repository-profile methods. New outcomes and material rescope use Start's direct `grilling` plus active `domain-modeling` path; at least one one-at-a-time decision and explicit shared-understanding confirmation are required before Shape. Governed code requires code review, surface minimization, and cutthroat cleanup. Stable behavior requires TDD, while scientific-computing code additionally requires `scientific-coding-and-testing`.
 
 Every governed Plan has a non-null `next_action`. After each internal stage, Start re-reads authoritative Status and continues. Failed verification, CI, or review routes through diagnosis, repair, and retry. Intermediate publication, implementation, PR, CI, review, merge, and cleanup-preparation states are never completion.
 
-Wayfinder is a facaded, pre-Shape decision method for outcomes that exceed one safe context. Its map and `## Question` tickets are source context only. Shape creates fresh Project Truss root and leaf issues; Wayfinder metadata never becomes lifecycle evidence.
+Wayfinder is a native, pre-Shape decision path for outcomes that exceed one safe context. Its map and `## Question` tickets are source context only. Shape creates fresh Project Truss root and leaf issues; Wayfinder metadata never becomes lifecycle evidence.
 
 ## Git synchronization
 

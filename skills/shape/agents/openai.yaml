@@ -1,5 +1,5 @@
 interface:
   capabilities: [filesystem.read, shell, github, native.user-input]
   display_name: "Shape"
-  short_description: "Publish Matt-shaped native GitHub outcomes and tickets."
-  default_prompt: "Use $project-truss:shape to grill when required, then publish the smallest native GitHub structure."
+  short_description: "Publish confirmed Matt decisions as GitHub work."
+  default_prompt: "Use $project-truss:shape after confirmed Matt grilling and domain modeling to publish the native GitHub structure, then return to Start."

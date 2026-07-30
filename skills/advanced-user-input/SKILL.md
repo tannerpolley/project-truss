@@ -1,11 +1,11 @@
 ---
 name: advanced-user-input
-description: Use when Project Truss needs one material decision or authority boundary resolved through native user input.
+description: Use when Start or a Truss stage needs one material decision or authority answer; as a native Truss control point, not a Matt method, ask one bounded question, record it in the affected Truss object, and return to Start.
 ---
 
 # Advanced User Input
 
-Questions are exceptional control points, not progress narration. Apply `docs/project-truss/contract.yml` and ask only when the answer changes scope, structure, authority, safety, or integration.
+Questions are exceptional control points, not progress narration. Advanced User Input is a callable native Truss control point, not a Matt method or terminal workflow: apply `docs/project-truss/contract.yml`, ask only when the answer changes scope, structure, authority, safety, or integration, record the answer in the object it changes, and return to Start.
 
 ## Native question shape
 

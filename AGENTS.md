@@ -21,7 +21,7 @@ Repository Profile: application-development
 
 ### Project Truss entrypoint
 
-Use `project-truss:setup` once to establish Matt-compatible repository guidance, then `project-truss:start` for engineering work. Start routes internal Truss stages and Matt methods; callers do not invoke those implementation skills directly.
+Use `project-truss:setup` once to establish repository guidance, then `project-truss:start` to begin or resume Matt-first engineering work. Start directly invokes callable Matt disciplines, routes Truss stages, and continues until verified closeout. The other Truss skills are callable for intentional stage entry and return to Start; never stop after one stage.
 
 ### Issue tracker
 

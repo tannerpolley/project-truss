@@ -6,11 +6,11 @@ Project Truss coordinates durable coding outcomes without replacing engineering 
 
 - **Direct work:** work that can safely complete without durable Truss coordination.
 - **Standalone pull request:** an existing PR with no matching canonical Project Truss resolution receipt (the claim record); it remains direct through review, merge, and cleanup.
-- **Facade:** the public Project Truss entrypoints that hide internal Truss stages and Matt method selection.
+- **Matt-first entrypoint:** `start`, the normal beginning or resumption point that directly invokes relevant Matt disciplines and routes native Truss stages.
 - **Continuation loop:** Start's repeated observation and routing from authoritative state until direct completion, intentional handoff, a named blocker, or verified closeout.
-- **Grill with docs:** the facaded Matt engineering interview composed from model-invocable grilling and active domain modeling.
-- **Method mode:** one of `invocable`, `facaded`, `missing`, or `not_triggered`, describing how current evidence routes a Matt method.
-- **Decision map:** a facaded Wayfinder artifact used before Shape; it supplies context but is not an execution contract or lifecycle source.
+- **Grilling path:** Start's direct use of model-invocable `grilling` and `domain-modeling` for new outcomes and material rescope.
+- **Method mode:** one of `invocable`, `missing`, or `not_triggered`, describing how current evidence routes a Matt method.
+- **Decision map:** a native Truss Wayfinder artifact used before Shape; it supplies context but is not an execution contract or lifecycle source.
 - **Governed outcome:** one result requiring publication, multiple units, delegation, a milestone, or cross-session continuity.
 - **Root:** the Matt-shaped problem and solution specification for a governed outcome.
 - **Leaf:** an executable tracer-bullet ticket under a root.
@@ -27,11 +27,11 @@ Project Truss coordinates durable coding outcomes without replacing engineering 
 ## Invariants
 
 - GitHub, Git, CI, and current worktrees are authoritative.
-- Users invoke only Project Truss Setup and Start; Truss owns internal stage and method routing.
+- All six Project Truss skills are callable. Start is the normal Matt-first beginning, while direct stage calls intentionally enter one stage and return to Start.
 - Every unfinished governed state has a next action, and every internal stage returns control to Start.
 - Absence of a governed resolution claim keeps a standalone PR direct; Truss never synthesizes missing leaf state for it.
 - New governed outcomes and material rescope require at least one grilling decision and explicit shared-understanding confirmation before Shape.
-- Command-only Matt contracts are reported as facaded, never falsely claimed as invoked skills.
+- Start directly invokes model-invocable Matt disciplines; user-invoked Matt wrappers are not silently chained as if they had run.
 - Decision maps and their question tickets never become Project Truss execution issues.
 - Labels, milestones, and Project fields never derive lifecycle state.
 - Multi-leaf selection is explicit.

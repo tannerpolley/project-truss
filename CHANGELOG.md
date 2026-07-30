@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Clarified that all six Project Truss skills are callable, Start directly invokes relevant Matt disciplines, and every stage continues or returns through the full Truss lifecycle.
 - Kept standalone pull requests direct so they can merge without synthetic Truss leaves or resolution receipts.
 - Made Start a closed continuation loop with inferred quality/profile methods and non-null governed next actions.
 - Aligned shaping with Matt's current `grill-with-docs` composition of `grilling` and `domain-modeling`.

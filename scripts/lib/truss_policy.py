@@ -11,14 +11,13 @@ import yaml
 
 
 SKILLS = ("setup", "start", "shape", "resolve", "close", "advanced-user-input")
-PUBLIC_SKILLS = ("setup", "start")
+PUBLIC_SKILLS = SKILLS
 INVOCABLE_METHODS = (
     "grilling", "tdd", "diagnosing-bugs", "research", "domain-modeling", "prototype",
     "resolving-merge-conflicts", "code-review", "cutthroat-code-cleanup",
     "minimize-code-surface", "scientific-coding-and-testing",
 )
-FACADED_METHODS = ("setup-matt-pocock-skills", "grill-with-docs", "wayfinder")
-ROUTED_METHODS = (*FACADED_METHODS, *INVOCABLE_METHODS)
+ROUTED_METHODS = INVOCABLE_METHODS
 HARD_TRIGGERS = ("explicit", "merge_or_publication", "release_or_milestone",
                  "multiple_independent_units", "multi_agent_delegation", "exceeds_safe_context")
 ROOT_ISSUE_SECTIONS = (
@@ -150,18 +149,13 @@ def _route_methods(
     def route(method: str) -> str:
         if method not in required:
             return "not_triggered"
-        if method in FACADED_METHODS:
-            return "facaded"
         return "invocable" if configured and method in available else "missing"
     methods = (*ROUTED_METHODS, *sorted(required - set(ROUTED_METHODS)))
     return {method: route(method) for method in methods}
 
 
 def all_method_routes(available: tuple[str, ...]) -> dict[str, str]:
-    return {
-        method: "facaded" if method in FACADED_METHODS else
-        "invocable" if method in available else "not_triggered" for method in ROUTED_METHODS
-    }
+    return {method: "invocable" if method in available else "not_triggered" for method in ROUTED_METHODS}
 
 
 def plan_work(request: WorkRequest) -> TrussPlan:
@@ -180,11 +174,11 @@ def plan_work(request: WorkRequest) -> TrussPlan:
         return TrussPlan(
             "governed", tuple(layers), request.material_decision_missing,
             next_skill="setup",
-            method_routes=_route_methods({"setup-matt-pocock-skills"}, (), False),
+            method_routes=_route_methods(set(), (), False),
         )
     required = set(request.required_methods)
     if request.new_outcome or request.material_rescope:
-        required.update(("grill-with-docs", "grilling", "domain-modeling"))
+        required.update(("grilling", "domain-modeling"))
     if request.code_change:
         required.update(("code-review", "cutthroat-code-cleanup", "minimize-code-surface"))
     if request.stable_behavior_change:
@@ -194,8 +188,6 @@ def plan_work(request: WorkRequest) -> TrussPlan:
     if request.failed_gate:
         required.add("diagnosing-bugs")
     wayfinding = request.exceeds_safe_context and request.material_decision_missing
-    if wayfinding:
-        required.add("wayfinder")
     routes = _route_methods(required, request.available_methods, True)
     grilling_due = (request.new_outcome or request.material_rescope) and (
         not request.grilling_decisions or not request.shared_understanding_confirmation

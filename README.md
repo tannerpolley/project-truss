@@ -1,6 +1,6 @@
 # Project Truss
 
-Project Truss is the user-facing facade for Matt-first engineering and GitHub-native coordination. It adds issue structure, atomic resolution sets, dependency ordering, pull-request continuity, CI-aware closeout, descriptive labels, milestones, and optional GitHub Projects projection while leaving ordinary coding direct.
+Project Truss coordinates Matt-first engineering with GitHub-native lifecycle control. It adds issue structure, atomic resolution sets, dependency ordering, pull-request continuity, CI-aware closeout, descriptive labels, milestones, and optional GitHub Projects projection while leaving ordinary coding direct.
 
 The canonical product and runtime contract is [docs/project-truss/README.md](docs/project-truss/README.md).
 
@@ -9,7 +9,7 @@ The canonical product and runtime contract is [docs/project-truss/README.md](doc
 - Codex with plugin support
 - Git, Bash, and Python 3
 - authenticated GitHub CLI (`gh`)
-- Matt Pocock engineering skills, routed behind Project Truss
+- Matt Pocock engineering skills, invoked directly when their discipline is needed
 
 Native `gh project` support is required only when Project projection is explicitly requested. The optional `gh projects` extension is not a runtime dependency.
 
@@ -24,14 +24,14 @@ Start a fresh Codex session after installation.
 
 ## Use
 
-Invoke `$project-truss:setup` once per repository, then `$project-truss:start` for engineering work. Start selects Matt methods and internal Truss stages; users do not need to invoke those implementation skills directly.
+Invoke `$project-truss:setup` once per repository, then `$project-truss:start` to begin or resume any Matt-first engineering work. Start grills when scope is unclear, invokes the relevant Matt disciplines, routes the Truss stages, and continues through verified closeout. The other four Truss skills are also callable when you intentionally enter a known stage; each returns control to Start.
 
 ```text
 Use $project-truss:setup to configure this repository.
 Use $project-truss:start to own this outcome through verified merge and closeout.
 ```
 
-The installed skills are `setup`, `start`, `shape`, `resolve`, `close`, and `advanced-user-input`; only Setup and Start are user-facing entrypoints.
+The installed skills are `setup`, `start`, `shape`, `resolve`, `close`, and `advanced-user-input`; Start is the normal beginning, not the only entrypoint.
 
 ## Develop and release
 

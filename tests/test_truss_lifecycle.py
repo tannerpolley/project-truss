@@ -151,7 +151,7 @@ class DirectAndShapeTests(unittest.TestCase):
         )
         plan = plan_work(request)
         self.assertFalse(plan.question_required)
-        self.assertEqual("facaded", plan.method_routes["grill-with-docs"])
+        self.assertNotIn("grill-with-docs", plan.method_routes)
         self.assertEqual("missing", plan.method_routes["scientific-coding-and-testing"])
         for method in ("grilling", "domain-modeling", "tdd", "code-review",
                        "cutthroat-code-cleanup", "minimize-code-surface"):
@@ -172,7 +172,7 @@ class DirectAndShapeTests(unittest.TestCase):
     def test_contract_and_issue_body_fail_closed_as_one_behavior_family(self):
         contract = load_contract(ROOT / "docs/project-truss/contract.yml")
         self.assertEqual(2, contract["version"])
-        self.assertEqual(["setup", "start"], contract["public_skills"])
+        self.assertEqual(["setup", "start", "shape", "resolve", "close", "advanced-user-input"], contract["public_skills"])
         self.assertEqual(
             ["setup", "start", "shape", "resolve", "close", "advanced-user-input"],
             contract["skills"],

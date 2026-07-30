@@ -17,7 +17,7 @@ METHODS = ["grilling", "tdd", "diagnosing-bugs", "research", "domain-modeling", 
            "resolving-merge-conflicts", "code-review", "cutthroat-code-cleanup",
            "minimize-code-surface", "scientific-coding-and-testing"]
 
-class SetupFacadeTests(unittest.TestCase):
+class SetupRoutingTests(unittest.TestCase):
     def test_setup_is_idempotent_and_preserves_unrelated_instructions(self):
         with tempfile.TemporaryDirectory() as directory:
             project = Path(directory)
@@ -176,10 +176,10 @@ class SetupFacadeTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "duplicates"):
             SetupRequest.from_mapping({**base, "available_methods": ["tdd", "tdd"]})
 
-    def test_plan_routes_facaded_and_invocable_methods_truthfully(self):
+    def test_plan_routes_callable_matt_methods_and_native_truss_stages(self):
         setup = plan_work(WorkRequest(explicit=True))
         self.assertEqual(("setup", ()), (setup.next_skill, setup.blockers))
-        self.assertEqual("facaded", setup.method_routes["setup-matt-pocock-skills"])
+        self.assertNotIn("setup-matt-pocock-skills", setup.method_routes)
 
         wayfinder = plan_work(
             WorkRequest(
@@ -194,8 +194,8 @@ class SetupFacadeTests(unittest.TestCase):
             )
         )
         self.assertEqual("start", wayfinder.next_skill)
-        self.assertEqual("facaded", wayfinder.method_routes["wayfinder"])
-        self.assertEqual("facaded", wayfinder.method_routes["grill-with-docs"])
+        self.assertNotIn("wayfinder", wayfinder.method_routes)
+        self.assertNotIn("grill-with-docs", wayfinder.method_routes)
         self.assertEqual("invocable", wayfinder.method_routes["grilling"])
         self.assertEqual("not_triggered", wayfinder.method_routes["tdd"])
 

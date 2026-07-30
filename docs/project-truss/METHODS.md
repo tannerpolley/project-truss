@@ -1,17 +1,16 @@
 # Project Truss Matt Method Routing
 
-Project Truss is the user-facing facade. Users invoke `project-truss:setup` once per repository and `project-truss:start` for ongoing work; Truss routes its internal stages and Matt Pocock engineering methods. Project Truss owns GitHub-native coordination while Matt methods own shaping and implementation technique.
+Project Truss coordinates durable GitHub outcomes and directly invokes Matt Pocock engineering disciplines. Run `project-truss:setup` once per repository, then use `project-truss:start` for normal Matt-first work. The other four lifecycle skills remain callable for intentional stage entry and return to Start. Project Truss owns GitHub-native coordination while Matt methods own shaping and implementation technique.
 
 ## Invocation modes
 
 | Mode | Meaning |
 |---|---|
 | `invocable` | An installed model-invocable Matt skill is called when its trigger matches. |
-| `facaded` | Project Truss adopts a command-only Matt contract and produces the equivalent repository result. |
 | `missing` | A triggered required method is unavailable, so governed work stops with `method_capability_missing`. |
 | `not_triggered` | The method is known but irrelevant to the current evidence. |
 
-`setup-matt-pocock-skills`, `grill-with-docs`, and Wayfinder are facaded contracts. Setup writes the Matt-compatible repository structure. Wayfinder handles decision work that exceeds one context.
+`setup-matt-pocock-skills`, `grill-with-docs`, and Wayfinder are user-invoked or native planning surfaces, not method routes silently chained by another user-invoked skill. Setup applies the repository configuration contract. Start directly invokes `grilling` and `domain-modeling`; Wayfinder remains a native Truss planning artifact.
 
 ## Required shaping method
 
@@ -33,11 +32,11 @@ Resume an unchanged published issue without repeating grilling.
 | Governed code is implemented | `minimize-code-surface`, `cutthroat-code-cleanup` | One minimal canonical implementation |
 | Scientific-computing code changes | `scientific-coding-and-testing` | Domain invariants, justified tolerances, and scientific verification |
 
-Command-oriented Matt workflows such as setup and Wayfinder may be unavailable for model invocation. Truss reports them as `facaded`; it must not claim to have invoked a skill that is absent.
+User-invoked Matt workflows such as repository setup and `grill-with-docs` may not be callable as model-invoked methods. Truss does not claim to have invoked them. It directly routes to the installed model-invocable disciplines that provide the required engineering behavior.
 
 ## Capability failure
 
-Before governed work, `start` verifies repository setup and required methods against the actual available skill list. Plan infers shaping, quality, and profile methods; callers list only extra task-specific requirements. Missing setup routes to `project-truss:setup`. A triggered method that is neither invocable nor facaded produces `method_capability_missing`.
+Before governed work, `start` verifies repository setup and required methods against the actual available skill list. Plan infers shaping, quality, and profile methods; callers list only extra task-specific requirements. Missing setup routes to `project-truss:setup`. A triggered method that is not invocable produces `method_capability_missing`.
 
 Direct work remains available. Governed work stops until the method is installed, configured, or the outcome is explicitly reshaped so that method is no longer required.
 

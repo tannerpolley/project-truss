@@ -1,11 +1,11 @@
 ---
 name: start
-description: Use when Project Truss is explicit or a coding outcome needs merge, publication, multiple deliverables, delegation, a milestone, or continuity beyond one safe context.
+description: Use to begin or resume any Matt-first engineering task; Start grills unclear scope, invokes relevant Matt disciplines, routes Project Truss stages, and continues through verified closeout or a named blocker.
 ---
 
 # Project Truss Start
 
-Own one outcome from classification through verified closeout. Users invoke only `project-truss:setup` and `project-truss:start`; Start routes all other Truss stages and engineering methods. Apply `docs/project-truss/contract.yml` and `docs/project-truss/METHODS.md`.
+Own one outcome from classification through verified closeout. Start is the normal beginning for Matt-first work: invoke callable Matt disciplines directly, route Truss stages, re-read authoritative state after each stage, and never stop merely because one method or stage finished. All six Truss skills remain callable for intentional entry. Apply `docs/project-truss/contract.yml` and `docs/project-truss/METHODS.md`.
 
 ## Classify and preflight
 
@@ -13,22 +13,21 @@ Resolve the installed plugin root from this skill's location as `PROJECT_TRUSS_R
 
 For an existing pull request, pass `-Repository OWNER/REPO -PullRequest N` to Plan. Plan reads live linked issues and treats their canonical resolution receipt as the claim record. With no matching receipt, review, verify, merge with authority, and safely clean the PR through ordinary Git/GitHub guidance; do not Shape a synthetic leaf or invoke Resolve/Close. A matching receipt remains governed, and unavailable or malformed evidence blocks.
 
-Before governed work, verify `docs/agents/` setup and the actual available skill list. Pass `matt_configured` and `available_methods`; use `required_methods` only for additional task-specific methods. If setup is absent, route to `setup`. Missing any inferred or explicit method is `method_capability_missing`; never silently skip it.
+Before governed work, verify `docs/agents/` setup and the actual available Matt skill list. Pass `matt_configured` and `available_methods`; use `required_methods` only for additional task-specific methods. If setup is absent, route to `setup`; after Setup, return here. Missing any inferred or explicit Matt method is `method_capability_missing`; never silently skip it.
 
 ## Grill before Shape
 
-New governed outcomes and material rescope set `new_outcome` or `material_rescope` and perform Matt's current `grill-with-docs` contract: invoke `grilling` and actively apply `domain-modeling`. Ask decision questions one at a time with a recommendation, looking up facts instead of asking. Ask at least one question and do not act until the user explicitly confirms shared understanding. Capture resolved glossary terms or qualifying ADRs inline; create neither when no domain decision crystallizes.
+New governed outcomes and material rescope invoke Matt's `grilling` and `domain-modeling` skills directly. Ask decision questions one at a time with a recommendation, look up facts instead of asking, and do not Shape until the user explicitly confirms shared understanding. Capture resolved glossary terms or qualifying ADRs inline; create neither when no domain decision crystallizes.
 
 Only then pass the actual question/answer decisions in `grilling_decisions` and the user's words in `shared_understanding_confirmation`. Resume an unchanged published issue without repeating the interview.
 
-Method routes are explicit:
+Matt method routes are explicit:
 
-- `invocable`: invoke the installed Matt skill.
-- `facaded`: Project Truss adopts a command-only Matt contract and produces its result.
+- `invocable`: invoke the installed Matt skill directly.
 - `missing`: stop with `method_capability_missing`.
 - `not_triggered`: do not run the method.
 
-When a material decision exceeds one safe context, Start performs the facaded Wayfinder contract before Shape. Name and grill the destination, create one `wayfinder:map` issue and native child decision tickets using the configured Wayfinding operations, then resolve at most one non-research frontier ticket per session. Once no decision fog remains, route to Shape. Treat the map and `## Question` tickets only as source context, never Truss execution issues or lifecycle evidence.
+When a material decision exceeds one safe context, Start owns the native Wayfinder planning path before Shape. Name and grill the destination, create one `wayfinder:map` issue and native child decision tickets using the configured operations, then resolve at most one non-research frontier ticket per session. Once no decision fog remains, route to Shape. Treat the map and `## Question` tickets only as source context, never execution issues or lifecycle evidence.
 
 ## Continuation loop
 
