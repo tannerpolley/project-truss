@@ -1,6 +1,6 @@
 ---
 name: close
-description: Use after implementation or a pull request to invoke Matt review, verify GitHub/Git/CI evidence, merge or roll up the correct outcome, retire local state safely, and return to Start.
+description: Use after implementation or a pull request to invoke Matt review, verify GitHub/Git evidence, merge or roll up the correct outcome, retire local state safely, and return to Start.
 ---
 
 # Project Truss Close
@@ -18,7 +18,7 @@ Do not merge with unresolved findings. A missing required review method is `meth
 
 ## Prove and merge the governed resolution
 
-Run repository-profile-selected verification and the full test suite. Require one shared pull request and head SHA, checked acceptance on every leaf, completed successful CI, no changes requested, a clean source tree, healthy integration, one owner, and matching receipts everywhere. Re-run `Resolve` with the pull-request number and `-RequireRecorded true`, then run set-level Closeout health bound to the pull-request head.
+Run repository-profile-selected verification and the full test suite. Require one shared pull request and head SHA, checked acceptance on every leaf, no changes requested, a clean source tree, healthy integration, one owner, and matching receipts everywhere. CI/status checks may be retained as optional provider context but are not a closeout gate. Re-run `Resolve` with the pull-request number and `-RequireRecorded true`, then run set-level Closeout health bound to the pull-request head.
 
 When a Project projection is configured, run the Project action with `ensure:false` for every selected issue and the pull request and require `member:true`. It re-checks structured native `gh project item-list` output. Membership is acceptance evidence only and never changes lifecycle state.
 

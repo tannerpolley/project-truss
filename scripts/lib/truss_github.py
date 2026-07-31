@@ -201,10 +201,10 @@ class GitHubClient:
         payload = self._json([
             "gh", "pr", "view", str(number), "--repo", repository, "--json", PR_FIELDS,
         ])
-        required = {"number", "state", "mergedAt", "statusCheckRollup", "reviewDecision", "url", "headRefOid"}
+        required = {"number", "state", "mergedAt", "reviewDecision", "url", "headRefOid"}
         if not isinstance(payload, Mapping) or not required.issubset(payload):
             raise GitHubObservationError("github_capability_missing", f"pull request #{number} fields are incomplete")
-        checks = payload["statusCheckRollup"]
+        checks = payload.get("statusCheckRollup") or []
         if not isinstance(checks, list):
             raise GitHubObservationError("github_capability_missing", f"pull request #{number} checks are unavailable")
         complete = bool(checks)

@@ -21,4 +21,4 @@ Wayfinder maps and decision tickets clarify an uncertain destination before exec
 
 ## Authority
 
-GitHub, Git, CI, reviews, and current worktrees are lifecycle truth. Labels, milestones, Projects, issue text, and comments cannot grant authority.
+GitHub, Git, reviews, integration, and current worktrees are lifecycle truth. Provider checks are optional context. Labels, milestones, Projects, issue text, and comments cannot grant authority.

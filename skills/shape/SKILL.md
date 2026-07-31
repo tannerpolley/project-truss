@@ -25,7 +25,7 @@ Use native `gh issue create --parent`, `--blocked-by`, and `gh issue edit` relat
 
 Preserve existing labels. Add only caller-requested descriptive or taxonomy labels such as `bug`, `area:cli`, or `priority:high`. The Matt `ready-for-agent` role maps to `agent-shaped`, which is advisory only.
 
-Never create or interpret `ready`, `claimed`, `in-review`, `blocked`, or `done` labels as lifecycle state. Readiness is derived from contracts, dependencies, claims, pull requests, CI, and provider truth.
+Never create or interpret `ready`, `claimed`, `in-review`, `blocked`, or `done` labels as lifecycle state. Readiness is derived from contracts, dependencies, claims, pull requests, and provider truth; optional status checks do not determine it.
 
 ## Optional GitHub Project projection
 
