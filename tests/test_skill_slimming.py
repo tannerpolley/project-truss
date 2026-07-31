@@ -50,7 +50,7 @@ class SkillSlimmingTests(unittest.TestCase):
             self.assertIn("docs/project-truss/contract.yml", skill, name)
             reconstructed.append(name)
         self.assertEqual(list(workflow), reconstructed)
-        for premature_stop in ("issue publication", "PR creation", "CI completion", "merge", "pre-cleanup"):
+        for premature_stop in ("issue publication", "PR creation", "review", "merge", "pre-cleanup"):
             self.assertIn(premature_stop, (ROOT / "skills/start/SKILL.md").read_text(encoding="utf-8"))
     def test_projects_and_labels_are_projection_not_lifecycle_state(self):
         shape = (ROOT / "skills/shape/SKILL.md").read_text(encoding="utf-8")

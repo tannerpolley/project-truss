@@ -31,9 +31,9 @@ When a material decision exceeds one safe context, Start owns the native Wayfind
 
 ## Continuation loop
 
-After every Shape, Resolve, Close, failure-recovery, merge, and Cleanup action, return to Start and re-read GitHub, Git, CI, reviews, and current worktrees. Use Status to choose the next stage from fresh truth. An implementation request authorizes routine in-scope issue, branch, pull-request, guarded merge, and exact outcome cleanup operations; ask only for a genuinely missing material decision or authority boundary.
+After every Shape, Resolve, Close, failure-recovery, merge, and Cleanup action, return to Start and re-read GitHub, Git, reviews, optional provider checks, and current worktrees. Use Status to choose the next stage from fresh truth. An implementation request authorizes routine in-scope issue, branch, pull-request, guarded merge, and exact outcome cleanup operations; ask only for a genuinely missing material decision or authority boundary.
 
-Do not finish at issue publication, implementation, PR creation, CI completion, review, merge, or pre-cleanup. On verification, CI, or review failure, rerun Plan with the matching `failed_gate`, invoke its required `diagnosing-bugs`, repair the cause, and retry. Stop only on a blocker named in the contract, an intentional Wayfinder handoff, direct-work completion, or verified governed closeout.
+Do not finish at issue publication, implementation, PR creation, review, merge, or pre-cleanup. On verification or review failure, rerun Plan with the matching `failed_gate`, invoke its required `diagnosing-bugs`, repair the cause, and retry. Optional provider checks do not add a lifecycle gate. Stop only on a blocker named in the contract, an intentional Wayfinder handoff, direct-work completion, or verified governed closeout.
 
 ## Synchronize before resolution
 
@@ -53,4 +53,4 @@ Treat `state_contradiction` from a dirty, non-default, ahead, or diverged canoni
 - Use `resolve` when one or more explicitly selected Ready leaves can proceed or a recorded resolution set must continue.
 - Use `close` when a governed selected set has a pull request or appears complete.
 
-Ask through `advanced-user-input` only for a material decision or authority boundary. Otherwise re-enter from GitHub, Git, CI, canonical evidence, and current worktrees rather than remembered state.
+Ask through `advanced-user-input` only for a material decision or authority boundary. Otherwise re-enter from GitHub, Git, canonical evidence, optional provider checks, and current worktrees rather than remembered state.

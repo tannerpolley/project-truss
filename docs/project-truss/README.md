@@ -1,6 +1,6 @@
 # Project Truss runtime contract
 
-Project Truss directly coordinates Matt-first engineering and GitHub-native outcomes. Invoke `project-truss:setup` once per repository, then use `project-truss:start` for normal work. `shape`, `resolve`, `close`, and `advanced-user-input` are also callable when intentionally entering one stage; each returns control to Start. Ordinary work remains direct. Governed work uses GitHub issues and native relationships, Git, pull requests, CI, and current worktrees as lifecycle truth.
+Project Truss directly coordinates Matt-first engineering and GitHub-native outcomes. Invoke `project-truss:setup` once per repository, then use `project-truss:start` for normal work. `shape`, `resolve`, `close`, and `advanced-user-input` are also callable when intentionally entering one stage; each returns control to Start. Ordinary work remains direct. Governed work uses GitHub issues and native relationships, Git, pull requests, reviews, integration, and current worktrees as lifecycle truth; CI/status checks are optional provider context.
 
 Commands below use `PROJECT_TRUSS_ROOT` for the absolute installed plugin root, resolved from the active Project Truss skill location.
 
@@ -28,7 +28,7 @@ For an existing PR, Start runs Plan with `-Repository OWNER/REPO -PullRequest N`
 
 Plan infers current Matt shaping, quality, and repository-profile methods. New outcomes and material rescope use Start's direct `grilling` plus active `domain-modeling` path; at least one one-at-a-time decision and explicit shared-understanding confirmation are required before Shape. Governed code requires code review, surface minimization, and cutthroat cleanup. Stable behavior requires TDD, while scientific-computing code additionally requires `scientific-coding-and-testing`.
 
-Every governed Plan has a non-null `next_action`. After each internal stage, Start re-reads authoritative Status and continues. Failed verification, CI, or review routes through diagnosis, repair, and retry. Intermediate publication, implementation, PR, CI, review, merge, and cleanup-preparation states are never completion.
+Every governed Plan has a non-null `next_action`. After each internal stage, Start re-reads authoritative Status and continues. Failed verification or review routes through diagnosis, repair, and retry. Intermediate publication, implementation, PR, review, merge, and cleanup-preparation states are never completion.
 
 Wayfinder is a native, pre-Shape decision path for outcomes that exceed one safe context. Its map and `## Question` tickets are source context only. Shape creates fresh Project Truss root and leaf issues; Wayfinder metadata never becomes lifecycle evidence.
 
@@ -67,7 +67,7 @@ The former six-heading issue format is not accepted in 2.0.
 
 ## Lifecycle truth
 
-Each leaf derives Ready, Claimed, In review, Blocked, or Done from current contracts, dependencies, one assignee, one closing pull request, reviews, CI, and closure evidence. Labels, milestones, and Project fields do not derive state.
+Each leaf derives Ready, Claimed, In review, Blocked, or Done from current contracts, dependencies, one assignee, one closing pull request, reviews, and closure evidence. Labels, milestones, Project fields, and optional status checks do not derive state.
 
 The full implementation-base SHA remains the shared diff boundary and stale-head guard. There is no provider-specific planning-artifact scan or second persistent state store.
 
@@ -91,7 +91,7 @@ The public Project action executes and verifies one membership at a time:
 
 ## Closeout
 
-For governed resolutions, Close reviews Standards once over the shared diff and Spec once per selected leaf. It requires matching receipts, checked acceptance, one shared PR/head, successful completed CI, clear review state, healthy integration, and clean source state. After merge, every selected leaf must derive Done before the root or milestone closes.
+For governed resolutions, Close reviews Standards once over the shared diff and Spec once per selected leaf. It requires matching receipts, checked acceptance, one shared PR/head, clear review state, healthy integration, and clean source state. Optional status checks are observed when available but never required for closeout. After merge, every selected leaf must derive Done before the root or milestone closes.
 
 After GitHub confirms the pull request merged and its remote head branch is deleted, Close returns to the clean canonical default checkout and runs:
 

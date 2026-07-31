@@ -38,7 +38,7 @@ Coordinate work through native GitHub state while using Matt-first engineering m
 
 ## Implementation Decisions
 
-GitHub, Git, CI, and current worktrees remain authoritative.
+GitHub, Git, reviews, integration, and current worktrees remain authoritative; provider checks are optional context.
 
 ## Testing Decisions
 
@@ -166,7 +166,8 @@ class DirectAndShapeTests(unittest.TestCase):
         resumed = plan_work(WorkRequest(explicit=True, matt_configured=True))
         self.assertEqual(("start", "invoke project-truss:start"),
                          (resumed.next_skill, resumed.to_dict()["next_action"]))
-        recovery = plan_work(WorkRequest(explicit=True, matt_configured=True, failed_gate="ci",
+        self.assertRaisesRegex(ValueError, "invalid failed_gate", WorkRequest.from_mapping, {"failed_gate": "ci"})
+        recovery = plan_work(WorkRequest(explicit=True, matt_configured=True, failed_gate="verification",
                                          available_methods=("diagnosing-bugs",)))
         self.assertEqual("invocable", recovery.method_routes["diagnosing-bugs"])
     def test_contract_and_issue_body_fail_closed_as_one_behavior_family(self):
@@ -468,9 +469,9 @@ class TruthfulCloseoutTests(unittest.TestCase):
         )
         approved = snapshot(
             issue={"number": 129, "title": "core", "state": "CLOSED", "body": VALID_BODY, "url": "https://github.example/issues/129"},
-            assignees=["one"], closing_prs=[passing_pr()],
+            assignees=["one"], closing_prs=[{**passing_pr(), "checks_complete": False, "checks_successful": False}],
         )
-        self.assertEqual(("verification_failed",), closeout_findings(approved, FinalHealth(True, True, True, "abc123")))
+        self.assertEqual(((), "Done"), (closeout_findings(approved, FinalHealth(True, True, True, "abc123", review_passed=True)), derive_state(approved)))
         self.assertEqual(("verification_failed",), closeout_findings(reviewed, FinalHealth(True, True, True, "abc123", review_passed=True)))
         self.assertEqual(("state_contradiction",), closeout_findings(snapshot(
             issue={"number": 129, "title": "core", "state": "CLOSED", "body": VALID_BODY, "url": "https://github.example/issues/129"},
@@ -528,10 +529,9 @@ class GitHubObservationTests(unittest.TestCase):
         self.assertIn("https://github.example/pull/120", current.source_urls)
         self.assertEqual(2, len(commands))
 
-        pr_payload["statusCheckRollup"] = []
-        unchecked = GitHubClient(runner=runner).snapshot("tannerpolley/project-truss", 116)
-        self.assertFalse(unchecked.closing_prs[0].checks_complete)
-        self.assertFalse(unchecked.closing_prs[0].checks_successful)
+        pr_payload.pop("statusCheckRollup")
+        absent = GitHubClient(runner=runner).snapshot("tannerpolley/project-truss", 116)
+        self.assertEqual((False, False), (absent.closing_prs[0].checks_complete, absent.closing_prs[0].checks_successful))
 
         issue_payload["data"]["repository"]["issue"]["comments"]["pageInfo"]["hasNextPage"] = True
         with self.assertRaisesRegex(GitHubObservationError, "comments exceeds"):

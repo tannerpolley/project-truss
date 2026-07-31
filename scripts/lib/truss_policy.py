@@ -113,7 +113,7 @@ class WorkRequest:
         }:
             raise ValueError("invalid repository_profile")
         failed_gate = values.get("failed_gate", "")
-        if not isinstance(failed_gate, str) or failed_gate not in {"", "verification", "ci", "review"}:
+        if not isinstance(failed_gate, str) or failed_gate not in {"", "verification", "review"}:
             raise ValueError("invalid failed_gate")
         confirmation = values.get("shared_understanding_confirmation", "")
         if "shared_understanding_confirmation" in values and (not isinstance(confirmation, str) or not confirmation.strip()):
@@ -700,7 +700,7 @@ def _open(items: tuple[Issue, ...]) -> bool:
 
 def _pr_verified(pr: PullRequest) -> bool:
     review_clear = pr.review_decision not in {"CHANGES_REQUESTED", "REVIEW_REQUIRED"}
-    return pr.merged and pr.state == "MERGED" and pr.checks_complete and pr.checks_successful and review_clear
+    return pr.merged and pr.state == "MERGED" and review_clear
 
 
 def closeout_findings(snapshot: OutcomeSnapshot, health: FinalHealth) -> tuple[str, ...]:
@@ -745,7 +745,6 @@ def derive_state(snapshot: OutcomeSnapshot) -> str:
     if not snapshot.authoritative:
         return "Blocked"
     contract = parse_issue_contract(snapshot.issue.body)
-    failed_pr = any(pr.checks_complete and not pr.checks_successful for pr in snapshot.closing_prs)
     missing_active_claim = not snapshot.children and bool(snapshot.closing_prs or snapshot.issue.state == "CLOSED") and len(snapshot.assignees) != 1
     blocked = (
         not contract.ok
@@ -753,7 +752,6 @@ def derive_state(snapshot: OutcomeSnapshot) -> str:
         or len(snapshot.assignees) > 1
         or missing_active_claim
         or bool(snapshot.provider_findings)
-        or failed_pr
         or snapshot.issue.state == "CLOSED" and any(child.state != "CLOSED" or child.lifecycle_state != "Done" for child in snapshot.children)
     )
     if blocked:
@@ -847,7 +845,7 @@ def derive_digest(snapshot: OutcomeSnapshot) -> OutcomeDigest:
     elif state == "Claimed":
         next_action = f"Continue claimed issue #{snapshot.issue.number}."
     elif state == "In review":
-        next_action = f"Review pull request #{snapshot.closing_prs[0].number} and current checks."
+        next_action = f"Review pull request #{snapshot.closing_prs[0].number} and current GitHub evidence."
     elif state == "Done":
         next_action = "No action; the current outcome is done."
     else:

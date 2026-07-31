@@ -26,7 +26,7 @@ Project Truss coordinates durable coding outcomes without replacing engineering 
 
 ## Invariants
 
-- GitHub, Git, CI, and current worktrees are authoritative.
+- GitHub, Git, reviews, integration, and current worktrees are authoritative; provider checks are optional context.
 - All six Project Truss skills are callable. Start is the normal Matt-first beginning, while direct stage calls intentionally enter one stage and return to Start.
 - Every unfinished governed state has a next action, and every internal stage returns control to Start.
 - Absence of a governed resolution claim keeps a standalone PR direct; Truss never synthesizes missing leaf state for it.
