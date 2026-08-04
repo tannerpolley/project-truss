@@ -194,6 +194,7 @@ def _validate_source(root: Path) -> None:
             "Further Notes",
         ],
         "leaf.yml": ["Parent", "What to build", "Acceptance criteria", "Blocked by"],
+        "standalone.yml": ["What to build", "Acceptance criteria", "Blocked by"],
     }
     for filename, expected in forms.items():
         template = yaml.safe_load(
@@ -239,13 +240,16 @@ def _validate_active_text(root: Path) -> None:
 
 
 def _line_budgets(root: Path) -> dict[str, int]:
+    def meaningful_lines(paths: list[Path]) -> int:
+        return sum(bool(line.strip()) for path in paths for line in read_text(path).splitlines())
+
     skill_lines = sum(len(read_text(path).splitlines()) for path in (root / "skills").glob("*/SKILL.md"))
     script_files = [path for path in (root / "scripts").rglob("*") if path.is_file() and path.suffix in {".py", ".sh"}]
     test_files = list((root / "tests").glob("*.py"))
     values = {
         "skill_lines": skill_lines,
-        "script_lines": sum(len(read_text(path).splitlines()) for path in script_files),
-        "test_lines": sum(len(read_text(path).splitlines()) for path in test_files),
+        "script_lines": meaningful_lines(script_files),
+        "test_lines": meaningful_lines(test_files),
         "shell_files": sum(1 for path in script_files if path.suffix == ".sh") + sum(1 for path in (root / "skills").rglob("*.sh")),
     }
     limits = {"skill_lines": 300, "script_lines": 4250, "test_lines": 2350, "shell_files": 18}

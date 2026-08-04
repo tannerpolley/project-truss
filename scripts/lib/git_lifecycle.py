@@ -30,9 +30,9 @@ class GitSyncResult:
 
     @classmethod
     def from_mapping(cls, data: Any) -> GitSyncResult:
-        fields = tuple(cls.__dataclass_fields__)
-        if not isinstance(data, Mapping) or set(data) != set(fields):
-            raise ValueError(f"preparation requires exactly {', '.join(fields)}")
+        fields = set(cls.__dataclass_fields__)
+        if not isinstance(data, Mapping) or not fields.issubset(data) or set(data) - fields:
+            raise ValueError(f"preparation requires {', '.join(sorted(fields))}")
         if any(not isinstance(data[field], str) for field in fields):
             raise ValueError("preparation fields must be strings")
         values = {field: data[field].strip() for field in fields}
@@ -45,24 +45,25 @@ class GitSyncResult:
 class CleanupRequest:
     pull_request: int
     branch: str
-    worktree: str
+    worktree: str | None
     cleanup_authorized: bool
 
     @classmethod
     def from_mapping(cls, data: Any) -> CleanupRequest:
-        fields = tuple(cls.__dataclass_fields__)
-        if not isinstance(data, Mapping) or set(data) != set(fields):
-            raise ValueError(f"cleanup request requires exactly {', '.join(fields)}")
+        fields = set(cls.__dataclass_fields__)
+        required = fields - {"worktree"}
+        if not isinstance(data, Mapping) or not required.issubset(data) or set(data) - fields:
+            raise ValueError(f"cleanup request requires {', '.join(sorted(required))} and optional worktree")
         number, branch, worktree, authorized = (
-            data["pull_request"], data["branch"], data["worktree"], data["cleanup_authorized"])
+            data["pull_request"], data["branch"], data.get("worktree"), data["cleanup_authorized"])
         if type(number) is not int or number < 1:
             raise ValueError("cleanup pull_request must be a positive integer")
-        if not isinstance(branch, str) or not isinstance(worktree, str):
-            raise ValueError("cleanup branch and worktree must be strings")
-        branch, worktree = branch.strip(), worktree.strip()
-        if not branch or not worktree or any(ord(char) < 32 for char in branch + worktree):
-            raise ValueError("cleanup branch and worktree must be safe non-empty strings")
-        if not Path(worktree).is_absolute():
+        if not isinstance(branch, str) or (worktree is not None and not isinstance(worktree, str)):
+            raise ValueError("cleanup branch must be a string and worktree must be a string when supplied")
+        branch, worktree = branch.strip(), worktree.strip() if worktree else None
+        if not branch or any(ord(char) < 32 for char in branch + (worktree or "")):
+            raise ValueError("cleanup branch and worktree must be safe strings")
+        if worktree and not Path(worktree).is_absolute():
             raise ValueError("cleanup worktree must be an absolute path")
         if type(authorized) is not bool:
             raise ValueError("cleanup_authorized must be boolean")
@@ -133,18 +134,38 @@ def _common_dir(runner: Runner, root: Path) -> Path:
 
 def _discover(root: Path, runner: Runner) -> _Repository:
     canonical = _worktrees(runner, root)[0][0]
-    candidates = []
-    for remote in _git(runner, canonical, "remote").splitlines():
-        default = _remote_default(runner, canonical, remote)
-        tracks_default = default and (
-            _config(runner, canonical, f"branch.{default}.remote"),
-            _config(runner, canonical, f"branch.{default}.merge"),
-        ) == (remote, f"refs/heads/{default}")
-        if tracks_default:
-            candidates.append((remote, default))
+    current_branch = _git(runner, canonical, "branch", "--show-current")
+    defaults = [(remote, default) for remote in _git(runner, canonical, "remote").splitlines()
+                if (default := _remote_default(runner, canonical, remote))]
+    candidates = [item for item in defaults if (
+        _config(runner, canonical, f"branch.{item[1]}.remote"),
+        _config(runner, canonical, f"branch.{item[1]}.merge"),
+    ) == (item[0], f"refs/heads/{item[1]}")]
+    branch_names = list(dict.fromkeys([default for _, default in defaults] + ([current_branch] if current_branch else [])))
+    preferred = next(
+        (
+            value
+            for name in branch_names
+            if (value := _config(runner, canonical, f"branch.{name}.pushRemote"))
+        ),
+        "",
+    )
+    preferred = preferred or _config(runner, canonical, "remote.pushDefault")
+    if preferred:
+        preferred_defaults = [item for item in defaults if item[0] == preferred]
+        if preferred_defaults:
+            candidates = [item for item in candidates if item[0] == preferred] or preferred_defaults
     if len(candidates) > 1:
-        preferred = _config(runner, canonical, "remote.pushDefault")
-        candidates = [item for item in candidates if item[0] == preferred]
+        upstream = _config(runner, canonical, f"branch.{current_branch}.remote") if current_branch else ""
+        upstream_candidates = [item for item in candidates if item[0] == upstream]
+        if len(upstream_candidates) == 1:
+            candidates = upstream_candidates
+    if not candidates and len(defaults) == 1:
+        candidates = defaults
+    if not candidates:
+        origin = [item for item in defaults if item[0] == "origin"]
+        if len(origin) == 1:
+            candidates = origin
     if len(candidates) != 1:
         raise GitLifecycleError(
             "state_contradiction", "primary remote and default branch are ambiguous or untracked"
@@ -164,7 +185,7 @@ def _clean_default(repository: _Repository, runner: Runner) -> None:
 def _snapshot(repository: _Repository, runner: Runner) -> GitSyncResult:
     base = _git(runner, repository.canonical, "rev-parse", f"refs/heads/{repository.default}")
     return GitSyncResult(
-        str(repository.canonical), repository.remote, repository.default, repository.remote_ref, base
+        str(repository.canonical), repository.remote, repository.default, repository.remote_ref, base,
     )
 
 
@@ -214,19 +235,15 @@ def validate_preparation(
         raise GitLifecycleError(
             "state_contradiction", "preparation no longer matches live Git identity"
         )
-    if _git(runner, canonical, "branch", "--show-current") not in {
-        preparation.default_branch,
-        active_branch,
-    }:
+    current_branch = _git(runner, canonical, "branch", "--show-current")
+    if current_branch not in {preparation.default_branch, active_branch}:
         raise GitLifecycleError("state_contradiction", "prepared canonical checkout changed branches")
+    _git(runner, canonical, "fetch", "--prune", preparation.primary_remote)
+    remote_head = _git(runner, canonical, "rev-parse", preparation.remote_ref)
     if _git(runner, canonical, "status", "--porcelain"):
         raise GitLifecycleError("state_contradiction", "prepared canonical checkout is dirty")
-    _git(runner, canonical, "fetch", "--prune", preparation.primary_remote)
-    heads = (
-        _git(runner, canonical, "rev-parse", f"refs/heads/{preparation.default_branch}"),
-        _git(runner, canonical, "rev-parse", preparation.remote_ref),
-    )
-    if heads != (preparation.implementation_base,) * 2:
+    local_head = _git(runner, canonical, "rev-parse", f"refs/heads/{preparation.default_branch}")
+    if (local_head, remote_head) != (preparation.implementation_base,) * 2:
         raise GitLifecycleError("state_contradiction", "prepared implementation base is stale")
 
 
@@ -288,7 +305,9 @@ def _branch_has_rules(runner: Runner, root: Path, repository: str, branch: str) 
 
 
 def _result(sync: GitSyncResult, cleanup: str, detail: str) -> dict[str, Any]:
-    return {key: value for key, value in sync.to_dict().items() if key != "remote_ref"} | {"cleanup": cleanup, "detail": detail}
+    return {
+        key: value for key, value in sync.to_dict().items() if key != "remote_ref"
+    } | {"cleanup": cleanup, "detail": detail}
 def cleanup_merged_outcome(
     repo_root: Path,
     repository: str,
@@ -311,50 +330,62 @@ def cleanup_merged_outcome(
         raise GitLifecycleError(
             "state_contradiction", "pull request head branch still exists on the primary remote"
         )
+    def unsafe(detail: str) -> dict[str, Any]:
+        return _result(_snapshot(discovered, runner), "skipped_unsafe_canonical", detail)
+
+    outcome_worktree = next(
+        (path for path, branch in _worktrees(runner, root) if branch == request.branch), None
+    )
+    current_branch = _git(runner, root, "branch", "--show-current")
+    if current_branch != discovered.default:
+        if current_branch != request.branch:
+            return unsafe("canonical checkout is on an unrelated branch")
+        if _git(runner, root, "status", "--porcelain"):
+            return unsafe("canonical outcome checkout is dirty")
+        switched = _run(runner, root, "git", "switch", discovered.default)
+        if switched.returncode:
+            return unsafe((switched.stderr or switched.stdout or "could not switch to default branch").strip())
     try:
         sync = synchronize_default(root, runner=runner)
     except GitLifecycleError as exc:
         if exc.blocker != "state_contradiction":
             raise
-        return _result(_snapshot(discovered, runner), "skipped_unsafe_canonical", str(exc))
+        return unsafe(str(exc))
     if proof.get("baseRefName") != sync.default_branch:
         raise GitLifecycleError(
             "state_contradiction", "pull request base does not match the discovered default branch"
         )
+    def skip(status: str, detail: str) -> dict[str, Any]:
+        return _result(sync, status, detail)
+
     if not request.cleanup_authorized:
-        return _result(
-            sync, "skipped_not_authorized", "default synchronized; local cleanup was not authorized"
-        )
+        return skip("skipped_not_authorized", "default synchronized; local cleanup was not authorized")
 
     canonical = Path(sync.canonical_checkout)
     remote_url = _git(runner, canonical, "remote", "get-url", sync.primary_remote)
     if (_github_repository(remote_url) or "").casefold() != repository.casefold():
-        return _result(
-            sync, "skipped_non_github_remote", "primary remote does not match the GitHub merge proof"
-        )
+        return skip("skipped_non_github_remote", "primary remote does not match the GitHub merge proof")
     if request.branch == sync.default_branch or _branch_has_rules(
         runner, canonical, repository, request.branch
     ):
-        return _result(sync, "skipped_protected_branch", "branch is protected")
+        return skip("skipped_protected_branch", "branch is protected")
     if _remote_branch_exists(runner, canonical, sync.primary_remote, request.branch):
-        return _result(sync, "skipped_remote_branch_recreated", "remote branch was recreated")
+        return skip("skipped_remote_branch_recreated", "remote branch was recreated")
 
     branch_ref = f"refs/heads/{request.branch}"
     if _run(runner, canonical, "git", "show-ref", "--verify", "--quiet", branch_ref).returncode:
-        return _result(sync, "skipped_branch_absent", "local branch is absent")
+        return skip("skipped_branch_absent", "local branch is absent")
     tracking = (
         _config(runner, canonical, f"branch.{request.branch}.remote"),
         _config(runner, canonical, f"branch.{request.branch}.merge"),
     )
     if tracking != (sync.primary_remote, f"refs/heads/{request.branch}"):
-        return _result(
-            sync, "skipped_unverified_branch", "branch is not bound to the deleted remote head"
-        )
+        return skip("skipped_unverified_branch", "branch is not bound to the deleted remote head")
     local_head = _git(runner, canonical, "rev-parse", branch_ref)
     if local_head != proof["headRefOid"]:
-        return _result(sync, "skipped_diverged_branch", "branch differs from merged PR head")
+        return skip("skipped_diverged_branch", "branch differs from merged PR head")
 
-    recorded = Path(request.worktree).resolve()
+    recorded = Path(request.worktree).resolve() if request.worktree else outcome_worktree or canonical
     checked_out = next(
         ((path, branch) for path, branch in _worktrees(runner, root) if branch == request.branch),
         None,
@@ -362,11 +393,11 @@ def cleanup_merged_outcome(
     if checked_out:
         path, _ = checked_out
         if path != recorded or path == canonical:
-            return _result(sync, "skipped_checked_out_worktree", f"branch is active in {path}")
+            return skip("skipped_checked_out_worktree", f"branch is active in {path}")
         if _git(runner, path, "status", "--porcelain"):
-            return _result(sync, "skipped_dirty_worktree", f"worktree is dirty: {path}")
+            return skip("skipped_dirty_worktree", f"worktree is dirty: {path}")
     elif recorded != canonical:
-        return _result(sync, "skipped_worktree_absent", "recorded outcome worktree is absent")
+        return skip("skipped_worktree_absent", "recorded outcome worktree is absent")
 
     graph_merged = _run(
         runner, canonical, "git", "merge-base", "--is-ancestor", branch_ref, sync.default_branch
@@ -376,9 +407,7 @@ def cleanup_merged_outcome(
     if checked_out:
         detached = _run(runner, path, "git", "switch", "--detach", local_head)
         if detached.returncode:
-            return _result(
-                sync, "skipped_worktree_detach_failed", (detached.stderr or detached.stdout).strip()
-            )
+            return skip("skipped_worktree_detach_failed", (detached.stderr or detached.stdout).strip())
 
     deleted = _run(runner, canonical, "git", "update-ref", "-d", branch_ref, local_head)
     if deleted.returncode:
@@ -386,7 +415,7 @@ def cleanup_merged_outcome(
             raise GitLifecycleError(
                 "state_contradiction", "worktree could not be reattached after cleanup conflict"
             )
-        return _result(sync, "skipped_diverged_branch", "branch moved or could not be safely deleted")
+        return skip("skipped_diverged_branch", "branch moved or could not be safely deleted")
     if checked_out:
         removal = _run(runner, canonical, "git", "worktree", "remove", str(path))
         if removal.returncode:
@@ -402,6 +431,6 @@ def cleanup_merged_outcome(
                     "state_contradiction", "worktree could not be reattached after cleanup failure"
                 )
             detail = (removal.stderr or removal.stdout).strip()
-            return _result(sync, "skipped_worktree_removal_failed", detail)
+            return skip("skipped_worktree_removal_failed", detail)
     cleanup = "deleted_graph_merged" if graph_merged.returncode == 0 else "deleted_github_confirmed"
     return _result(sync, cleanup, "deleted the verified merged outcome")

@@ -4,8 +4,9 @@ Project Truss uses GitHub Issues in `{repository}` through the authenticated `gh
 
 ## Project Truss execution issues
 
-- Root issues use Problem Statement, Solution, numbered User Stories, Implementation Decisions, Testing Decisions, Out of Scope, and Further Notes.
-- Executable leaves use Parent, What to build, Acceptance criteria, and Blocked by.
+- Root issues use Problem Statement, Solution, numbered User Stories, Implementation Decisions, Testing Decisions, Out of Scope, and Further Notes when work is decomposed.
+- Standalone issues use What to build, Acceptance criteria, and Blocked by; they do not need a Parent.
+- Executable leaves add Parent only beneath a real root.
 - Native sub-issue and blocked-by relationships are authoritative.
 
 ## Wayfinder decision issues
@@ -21,4 +22,4 @@ Wayfinder maps and decision tickets clarify an uncertain destination before exec
 
 ## Authority
 
-GitHub, Git, reviews, integration, and current worktrees are lifecycle truth. Provider checks are optional context. Labels, milestones, Projects, issue text, and comments cannot grant authority.
+GitHub, Git, reviews, integration, and current worktrees are lifecycle truth. Provider checks are optional context. Labels, milestones, Projects, issue text, and comments cannot grant lifecycle authority; they remain useful advisory views unless explicitly selected as acceptance evidence.

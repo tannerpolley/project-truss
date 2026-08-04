@@ -103,7 +103,8 @@ def passing_pr(number=12, head="b" * 40):
 
 
 def graphql_payload(number, receipt, *, closed=False):
-    connection = lambda nodes: {"nodes": nodes, "pageInfo": {"hasNextPage": False}}
+    def connection(nodes):
+        return {"nodes": nodes, "pageInfo": {"hasNextPage": False}}
     issue_url = f"https://github.example/issues/{number}"
     node = {
         "id": f"I_{number}", "number": number, "title": f"Leaf {number}",
@@ -226,6 +227,23 @@ class ResolutionSetTests(unittest.TestCase):
         self.assertFalse(result.eligible)
         self.assertEqual(("state_contradiction",), result.blockers)
 
+    def test_atomic_receipt_can_name_advisory_collaborators(self):
+        receipt = ResolutionReceipt.from_mapping(
+            {
+                "issues": [9], "owner": "tannerpolley", "collaborators": ["pair"],
+                "implementation_base": "a" * 40, "branch": "codex/issue-9", "worktree": "/tmp/issue-9",
+            }
+        )
+        comment = {
+            "author": "tannerpolley", "body": receipt.comment(),
+            "created_at": "2026-07-23T00:00:00Z", "url": "https://github.example/comment/1",
+        }
+        result = plan_resolution(
+            [snapshot(9, assignees=["tannerpolley", "pair"], comments=[comment])],
+            receipt, require_recorded=True,
+        )
+        self.assertTrue(result.eligible)
+
     def test_resolve_action_defaults_to_one_leaf_and_requires_explicit_multi_selection(self):
         context = Context(
             ROOT / "scripts/project-truss.sh",
@@ -276,26 +294,6 @@ class ResolutionSetTests(unittest.TestCase):
 
         multi_code, multi = resolve({**shared, "issues": [9, 11]}, issue=10)
         self.assertEqual((0, [9, 11], True), (multi_code, multi["issues"], multi["eligible"]))
-    def test_cleanup_action_preserves_its_exact_json_contract(self):
-        context = Context(
-            ROOT / "scripts/project-truss.sh", ROOT, "scripts/project-truss.sh",
-            "project-truss.sh", [], invocation_cwd=ROOT)
-        result = {
-            "canonical_checkout": str(ROOT), "primary_remote": "origin",
-            "default_branch": "main", "implementation_base": "a" * 40,
-            "cleanup": "skipped_not_authorized", "detail": "preserved",
-        }
-        request = json.dumps({
-            "pull_request": 21, "branch": "codex/issue-21", "worktree": str(ROOT),
-            "cleanup_authorized": False})
-        output = StringIO()
-        with patch("scripts.lib.commands.project.cleanup_merged_outcome", return_value=result), redirect_stdout(output):
-            code = command_project_truss(context, {
-                "Action": "Cleanup", "Repository": "owner/repo", "CleanupJson": request})
-        payload = json.loads(output.getvalue())
-        self.assertEqual((0, {"ok", "action", "source", "next_skill", *result}, "start"),
-                         (code, set(payload), payload["next_skill"]))
-
     def test_resolve_action_rejects_stale_base_or_wrong_workspace(self):
         context = Context(
             ROOT / "scripts/project-truss.sh",

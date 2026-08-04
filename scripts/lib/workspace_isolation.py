@@ -68,6 +68,37 @@ def resolve_workspace_isolation(request: Mapping[str, Any], capabilities: Mappin
     raise WorkspaceIsolationError("required isolation has no available provider")
 
 
+def build_workspace_receipt(
+    request: Mapping[str, Any], decision: Mapping[str, Any], observation: Mapping[str, Any]
+) -> dict[str, Any]:
+    """Build the exact receipt from provider observation; callers do not copy paths by hand."""
+    provider = decision.get("provider")
+    if provider not in _OWNERS:
+        raise WorkspaceIsolationError("workspace receipt requires a concrete workspace provider")
+    workspace_id = decision.get("workspace_id") or observation.get("workspace_id")
+    owner = observation.get("owner") or ("codex_app" if provider == "codex_managed_worktree" else "plugin")
+    values = {
+        "schema_version": 1,
+        "provider": provider,
+        "workspace_id": workspace_id,
+        "repository_root": observation.get("repository_root"),
+        "git_common_dir": observation.get("git_common_dir"),
+        "issue_number": request.get("issue_number"),
+        "task_id": observation.get("task_id") if provider == "codex_managed_worktree" else None,
+        "thread_id": observation.get("thread_id"),
+        "observed_head": observation.get("observed_head"),
+        "head_mode": observation.get("head_mode"),
+        "branch": observation.get("branch"),
+        "owner": owner,
+        "disposition": observation.get("disposition", "active"),
+    }
+    if provider == "codex_managed_worktree" and not values["task_id"]:
+        raise WorkspaceIsolationError("Codex workspace observation is missing task identity")
+    if provider == "local_git_worktree":
+        values["task_id"] = None
+    return values
+
+
 def validate_workspace_receipt(
     receipt: Mapping[str, Any],
     expected: Mapping[str, Any],
