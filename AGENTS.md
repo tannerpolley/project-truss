@@ -13,19 +13,19 @@ Repository Profile: application-development
 - Ordinary maintenance remains direct unless Project Truss is explicit or a hard continuity trigger exists.
 - Governed lifecycle truth comes from GitHub, Git, CI, and current worktrees. Do not add a second persistent state store.
 - Keep durable issue comments to claim/start, blocker or decision, handoff, and verified closeout.
-- Use hidden Codex worktrees for issue implementation. After merge, restore canonical local `main` with no feature branch or linked worktree.
-- Product and runtime documentation belongs under `docs/project-truss/`. GitHub issues hold governed root specifications and leaf tickets; do not create local lifecycle mirrors or planning artifacts.
+- Use hidden Codex worktrees for issue implementation. After merge, restore the discovered canonical default branch with no feature branch or linked worktree.
+- Product and runtime documentation belongs under `docs/project-truss/`. GitHub issues hold governed root specifications, standalone tickets, and leaves; do not create local lifecycle mirrors or planning artifacts.
 - Repository profiles select verification behavior. Scientific repositories use domain invariants and engineering tolerances; application repositories use meaningful behavior, integration, and product acceptance.
 
 ## Agent skills
 
 ### Project Truss entrypoint
 
-Use `project-truss:setup` once to establish repository guidance, then `project-truss:start` to begin or resume Matt-first engineering work. Start directly invokes callable Matt disciplines, routes Truss stages, and continues until verified closeout. The other Truss skills are callable for intentional stage entry and return to Start; never stop after one stage.
+Use `project-truss:setup` once to establish repository guidance, then `project-truss:start` to begin or resume Matt-first engineering work. Start selects direct/light/governed coordination, directly invokes callable Matt disciplines, consumes continuation tokens, routes Truss stages, and continues until completion or a named blocker. The other Truss skills are callable for intentional stage entry and return to Start; never stop after one stage.
 
 ### Issue tracker
 
-Governed work uses GitHub Issues in `tannerpolley/project-truss` through the `gh` CLI. See `docs/agents/issue-tracker.md`.
+Governed work uses GitHub Issues in `tannerpolley/project-truss` through the `gh` CLI. Standalone issues do not require a parent; see `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 

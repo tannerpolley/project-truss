@@ -1,0 +1,28 @@
+name: Standalone outcome
+description: Publish one self-contained issue without a parent/leaf hierarchy.
+title: ""
+labels: []
+body:
+  - type: textarea
+    id: build
+    attributes:
+      label: What to build
+      description: Describe one end-to-end behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Use observable behavior checkboxes.
+      value: "- [ ] "
+    validations:
+      required: true
+  - type: textarea
+    id: blocked_by
+    attributes:
+      label: Blocked by
+      description: Reference native blockers or state that none exist.
+      value: "None — can start immediately."
+    validations:
+      required: true

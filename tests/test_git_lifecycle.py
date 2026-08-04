@@ -211,6 +211,22 @@ class GitLifecycleTests(unittest.TestCase):
             self.assertEqual(remote_head, fixture.git(fixture.repo, "rev-parse", "HEAD"))
             self.assertTrue(fixture.git(fixture.repo, "branch", "--list", branch))
 
+    def test_cleanup_can_return_a_clean_canonical_outcome_checkout_to_default(self):
+        with tempfile.TemporaryDirectory() as directory:
+            fixture, branch = Repository(Path(directory)), "codex/current-outcome"
+            head = fixture.branch(branch)
+            fixture.git(fixture.repo, "switch", branch)
+            fixture.delete_remote(branch)
+            result = cleanup_merged_outcome(
+                fixture.repo,
+                "owner/repo",
+                CleanupRequest(46, branch, None, True),
+                runner=GitHubRunner(merged(46, branch, head, fixture.default)),
+            )
+            self.assertEqual("deleted_github_confirmed", result["cleanup"])
+            self.assertEqual(fixture.default, fixture.git(fixture.repo, "branch", "--show-current"))
+            self.assertFalse(fixture.git(fixture.repo, "branch", "--list", branch))
+
     def test_runtime_documents_explicit_lifecycle_and_hook_limits(self):
         text = "\n".join((ROOT / path).read_text(encoding="utf-8") for path in (
             "skills/start/SKILL.md", "skills/resolve/SKILL.md", "skills/close/SKILL.md",

@@ -93,24 +93,46 @@ def _managed(text: str, block: str | None) -> str:
     return (before.rstrip() + ("\n\n" + managed if managed else "") + after).strip() + "\n"
 
 
-def validate_setup_target(root: Path, repository: str, runner: Callable[..., Any] = subprocess.run) -> dict[str, Any]:
-    def run(command: list[str], blocker: str) -> str:
-        try:
-            result = runner(command, cwd=root, text=True, capture_output=True, timeout=30)
-        except (OSError, subprocess.TimeoutExpired) as exc:
-            raise SetupError(blocker, f"command unavailable: {command[0]}") from exc
-        if result.returncode:
-            raise SetupError(blocker, result.stderr.strip() or f"{command[0]} failed")
-        return result.stdout.strip()
+def _command_output(root: Path, runner: Callable[..., Any], command: list[str], blocker: str) -> str:
+    try:
+        result = runner(command, cwd=root, text=True, capture_output=True, timeout=30)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise SetupError(blocker, f"command unavailable: {command[0]}") from exc
+    if result.returncode:
+        raise SetupError(blocker, result.stderr.strip() or f"{command[0]} failed")
+    return result.stdout.strip()
 
-    git_root = run(["git", "-C", str(root), "rev-parse", "--show-toplevel"], "state_contradiction")
+
+def validate_setup_target(root: Path, repository: str, runner: Callable[..., Any] = subprocess.run) -> dict[str, Any]:
+    root = root.resolve()
+    git_root = _command_output(root, runner, ["git", "-C", str(root), "rev-parse", "--show-toplevel"], "state_contradiction")
     if Path(git_root).resolve() != root.resolve():
         raise SetupError("state_contradiction", "RepoRoot is not the attached Git root")
-    observed = run(["gh", "repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner"],
-                   "github_capability_missing")
+    observed = _command_output(root, runner, ["gh", "repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner"], "github_capability_missing")
     if observed.casefold() != repository.casefold():
         raise SetupError("github_capability_missing", "authenticated gh cannot verify repository")
     return {"repository": repository, "git_root": str(root.resolve())}
+
+
+def discover_setup_request(root: Path, runner: Callable[..., Any] = subprocess.run) -> SetupRequest:
+    """Infer safe repository defaults; method availability remains an explicit observation."""
+    root = root.resolve()
+
+    observed_root = _command_output(root, runner, ["git", "-C", str(root), "rev-parse", "--show-toplevel"], "state_contradiction")
+    if Path(observed_root).resolve() != root:
+        raise SetupError("state_contradiction", "RepoRoot is not the attached Git root")
+    repository = _command_output(root, runner, ["gh", "repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner"], "github_capability_missing")
+    instruction_files = [name for name in ("CLAUDE.md", "AGENTS.md") if (root / name).is_file()]
+    contexts = sorted(path.relative_to(root).as_posix() for path in root.glob("*/CONTEXT.md"))
+    signals = (root / "CONTEXT-MAP.md").is_file() or (root / "pnpm-workspace.yaml").is_file() or len(contexts) > 1
+    triage = (root / "docs/agents/triage-labels.md").is_file()
+    return SetupRequest(
+        repository=repository,
+        instruction_file=instruction_files[0] if instruction_files else "AGENTS.md",
+        domain_layout="multi-context" if signals else "single-context",
+        triage_enabled=triage,
+        available_methods=(),
+    )
 
 
 def _commit(root: Path, outputs: Mapping[Path, str | None]) -> list[str]:
@@ -164,7 +186,7 @@ def _commit(root: Path, outputs: Mapping[Path, str | None]) -> list[str]:
     return [path.relative_to(root).as_posix() for path in changed]
 
 
-def apply_setup(root: Path, request: SetupRequest) -> dict[str, Any]:
+def apply_setup(root: Path, request: SetupRequest, *, write: bool = True) -> dict[str, Any]:
     root = root.resolve()
     instruction_files = [name for name in ("CLAUDE.md", "AGENTS.md") if (root / name).is_file()]
     contexts = sorted(path.relative_to(root).as_posix() for path in root.glob("*/CONTEXT.md"))
@@ -198,10 +220,15 @@ def apply_setup(root: Path, request: SetupRequest) -> dict[str, Any]:
         triage_current, _template("triage-labels.md") if request.triage_enabled else None
     )
     outputs[triage_path] = triage_output if triage_output.strip() else None
-    changed = _commit(root, outputs)
+    changed = [path.relative_to(root).as_posix() for path, text in outputs.items() if (
+        (path.read_text(encoding="utf-8") if path.is_file() else None) != text
+    )]
+    if write:
+        changed = _commit(root, outputs)
     return {
         "changed": bool(changed),
         "changed_paths": changed,
+        "applied": write,
         "instruction_file": request.instruction_file,
         "method_routes": all_method_routes(request.available_methods),
         "evidence": observed,

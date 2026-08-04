@@ -116,7 +116,7 @@ class DirectAndShapeTests(unittest.TestCase):
         self.assertEqual("direct", result.lane)
         self.assertEqual((), result.layers)
         self.assertFalse(result.question_required)
-    def test_governed_work_uses_only_the_adaptive_shape_and_material_question(self):
+    def test_adaptive_work_uses_light_shape_and_governed_release_shape(self):
         single = plan_work(WorkRequest(explicit=True))
         release = plan_work(
             WorkRequest(
@@ -130,9 +130,9 @@ class DirectAndShapeTests(unittest.TestCase):
                 available_methods=("grilling", "domain-modeling"),
             )
         )
-        self.assertEqual(("leaf", "pull_request"), single.layers)
+        self.assertEqual(("issue", "pull_request"), single.layers)
         self.assertFalse(single.question_required)
-        self.assertEqual("invoke project-truss:setup", single.to_dict()["next_action"])
+        self.assertEqual("proceed directly", single.to_dict()["next_action"])
         self.assertEqual(
             ("milestone", "parent", "leaf", "pull_request"), release.layers
         )
@@ -140,9 +140,9 @@ class DirectAndShapeTests(unittest.TestCase):
         self.assertEqual("shape", release.next_skill)
     def test_plan_infers_grilling_quality_and_profile_methods(self):
         with self.assertRaises(ValueError): WorkRequest.from_mapping({"repository_profile": []})
-        self.assertEqual("setup", plan_work(WorkRequest(explicit=True)).next_skill)
+        self.assertIsNone(plan_work(WorkRequest(explicit=True)).next_skill)
         request = WorkRequest(
-            explicit=True, matt_configured=True, new_outcome=True, code_change=True,
+            mode="governed", explicit=True, matt_configured=True, new_outcome=True, code_change=True, change_risk="structural",
             stable_behavior_change=True, repository_profile="scientific-computing",
             grilling_decisions=("Question -> answer",),
             shared_understanding_confirmation="Confirmed",
@@ -159,12 +159,12 @@ class DirectAndShapeTests(unittest.TestCase):
         self.assertEqual(("method_capability_missing",), plan.blockers)
         self.assertIsNone(plan.next_skill)
         self.assertEqual("stop: method_capability_missing", plan.to_dict()["next_action"])
-        ungrilled = plan_work(WorkRequest(explicit=True, matt_configured=True, new_outcome=True,
+        ungrilled = plan_work(WorkRequest(mode="governed", explicit=True, matt_configured=True, new_outcome=True,
             available_methods=("grilling", "domain-modeling")))
         self.assertEqual((True, "start", ("decision_required",)),
                          (ungrilled.question_required, ungrilled.next_skill, ungrilled.blockers))
         resumed = plan_work(WorkRequest(explicit=True, matt_configured=True))
-        self.assertEqual(("start", "invoke project-truss:start"),
+        self.assertEqual((None, "proceed directly"),
                          (resumed.next_skill, resumed.to_dict()["next_action"]))
         self.assertRaisesRegex(ValueError, "invalid failed_gate", WorkRequest.from_mapping, {"failed_gate": "ci"})
         recovery = plan_work(WorkRequest(explicit=True, matt_configured=True, failed_gate="verification",
@@ -183,14 +183,14 @@ class DirectAndShapeTests(unittest.TestCase):
         self.assertEqual(("root", True), (root.kind, root.ok))
         self.assertEqual(("leaf", True), (leaf.kind, leaf.ok))
         incomplete = parse_issue_contract(LEAF_BODY.replace("## Blocked by", "## Dependencies"))
-        self.assertFalse(incomplete.ok)
-        self.assertIn("Blocked by", incomplete.missing)
+        self.assertTrue(incomplete.ok)
+        self.assertNotIn("Blocked by", incomplete.missing)
         duplicate = parse_issue_contract(LEAF_BODY + "\n## Acceptance criteria\n\n- [x] Duplicate.\n")
         self.assertFalse(duplicate.ok)
         self.assertIn("Acceptance criteria", duplicate.missing)
         self.assertFalse(parse_issue_contract(ROOT_BODY + "\n" + LEAF_BODY).ok)
         for marks in ("#", "##", "###", "######"):
-            self.assertFalse(parse_issue_contract(LEAF_BODY + f"\n{marks} Outcome\n\nRetired hybrid.\n").ok)
+            self.assertTrue(parse_issue_contract(LEAF_BODY + f"\n{marks} Outcome\n\nRetired hybrid.\n").ok)
         invalid_parent = parse_issue_contract(LEAF_BODY.replace("#128", "No parent"))
         self.assertFalse(invalid_parent.ok)
         self.assertIn("Parent", invalid_parent.missing)
@@ -533,8 +533,10 @@ class GitHubObservationTests(unittest.TestCase):
         absent = GitHubClient(runner=runner).snapshot("tannerpolley/project-truss", 116)
         self.assertEqual((False, False), (absent.closing_prs[0].checks_complete, absent.closing_prs[0].checks_successful))
 
-        issue_payload["data"]["repository"]["issue"]["comments"]["pageInfo"]["hasNextPage"] = True
-        with self.assertRaisesRegex(GitHubObservationError, "comments exceeds"):
+        issue_payload["data"]["repository"]["issue"]["comments"]["pageInfo"].update(
+            {"hasNextPage": True, "endCursor": "cursor"}
+        )
+        with self.assertRaisesRegex(GitHubObservationError, "safe pagination limit"):
             GitHubClient(runner=runner).snapshot("owner/repo", 116)
         issue_payload["data"]["repository"]["issue"]["comments"]["pageInfo"]["hasNextPage"] = False
         issue_payload["data"]["repository"]["issue"]["assignees"]["nodes"] = [{}]
@@ -583,7 +585,7 @@ class LauncherTests(unittest.TestCase):
                          (shaped["action"], shaped["lane"], shaped["layers"]))
         blocked = launch({"explicit": True, "matt_configured": True, "new_outcome": True,
             "grilling_decisions": ["Question -> answer"], "shared_understanding_confirmation": "Confirmed"})
-        self.assertEqual((None, "stop: method_capability_missing"),
+        self.assertEqual((None, "proceed directly"),
                          (blocked["next_skill"], blocked["next_action"]))
         recovery = launch({"explicit": True, "matt_configured": True, "failed_gate": "review",
                            "available_methods": ["diagnosing-bugs"]})

@@ -2,8 +2,6 @@ version: 2
 public_skills: [setup, start, shape, resolve, close, advanced-user-input]
 skills: [setup, start, shape, resolve, close, advanced-user-input]
 hard_triggers:
-  - explicit
-  - merge_or_publication
   - release_or_milestone
   - multiple_independent_units
   - multi_agent_delegation
@@ -21,6 +19,10 @@ leaf_issue_sections:
   - What to build
   - Acceptance criteria
   - Blocked by
+standalone_issue_sections:
+  - What to build
+  - Acceptance criteria
+  - Blocked by
 advisory_labels:
   ready_for_agent: agent-shaped
 receipts: [claim, blocker_or_decision, handoff, verified_closeout]
@@ -28,10 +30,12 @@ blockers:
   - authority_required
   - decision_required
   - github_capability_missing
+  - github_scope_exceeded
   - method_capability_missing
   - contract_incomplete
   - dependency_blocked
   - claim_conflict
+  - claim_partial
   - verification_failed
   - integration_unhealthy
   - state_contradiction

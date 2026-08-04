@@ -10,7 +10,7 @@ from unittest import mock
 from scripts.lib.command_support import Context
 from scripts.lib.commands.project import command_project_truss
 from scripts.lib.truss_setup import SetupError, SetupRequest, apply_setup, validate_setup_target
-from scripts.lib.truss_policy import OutcomeSnapshot, WorkRequest, all_method_routes, derive_digest, parse_issue_contract, plan_work
+from scripts.lib.truss_policy import OutcomeSnapshot, derive_digest, parse_issue_contract
 
 ROOT = Path(__file__).resolve().parents[1]
 METHODS = ["grilling", "tdd", "diagnosing-bugs", "research", "domain-modeling", "prototype",
@@ -59,7 +59,7 @@ class SetupRoutingTests(unittest.TestCase):
                     self.assertEqual(
                         0,
                         command_project_truss(
-                            context, {"Action": "Setup", "SetupJson": request}
+                            context, {"Action": "Setup", "SetupJson": request, "Apply": True}
                         ),
                     )
                 outputs.append(json.loads(output.getvalue()))
@@ -125,6 +125,30 @@ class SetupRoutingTests(unittest.TestCase):
                 ),
             )
 
+    def test_setup_defaults_to_a_read_only_preview(self):
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            context = Context(
+                ROOT / "scripts/project-truss.sh", ROOT, "", "", [], invocation_cwd=project
+            )
+            setup = json.dumps({
+                "repository": "owner/repo", "instruction_file": "AGENTS.md",
+                "domain_layout": "single-context", "triage_enabled": False,
+                "available_methods": [],
+            })
+            with mock.patch(
+                "scripts.lib.commands.project.validate_setup_target",
+                return_value={"repository": "owner/repo"},
+            ), redirect_stdout(StringIO()) as output:
+                self.assertEqual(
+                    0,
+                    command_project_truss(context, {"Action": "Setup", "SetupJson": setup}),
+                )
+            preview = json.loads(output.getvalue())
+            self.assertFalse(preview["applied"])
+            self.assertTrue(preview["changed"])
+            self.assertEqual([], list(project.iterdir()))
+
     def test_setup_rejects_symlink_escape_and_duplicate_agent_sections(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "repo"
@@ -175,41 +199,6 @@ class SetupRoutingTests(unittest.TestCase):
             SetupRequest.from_mapping({**base, "repository": 1})
         with self.assertRaisesRegex(ValueError, "duplicates"):
             SetupRequest.from_mapping({**base, "available_methods": ["tdd", "tdd"]})
-
-    def test_plan_routes_callable_matt_methods_and_native_truss_stages(self):
-        setup = plan_work(WorkRequest(explicit=True))
-        self.assertEqual(("setup", ()), (setup.next_skill, setup.blockers))
-        self.assertNotIn("setup-matt-pocock-skills", setup.method_routes)
-
-        wayfinder = plan_work(
-            WorkRequest(
-                explicit=True,
-                exceeds_safe_context=True,
-                material_decision_missing=True,
-                matt_configured=True,
-                new_outcome=True,
-                grilling_decisions=("Question -> answer",),
-                shared_understanding_confirmation="Confirmed",
-                available_methods=("grilling", "domain-modeling"),
-            )
-        )
-        self.assertEqual("start", wayfinder.next_skill)
-        self.assertNotIn("wayfinder", wayfinder.method_routes)
-        self.assertNotIn("grill-with-docs", wayfinder.method_routes)
-        self.assertEqual("invocable", wayfinder.method_routes["grilling"])
-        self.assertEqual("not_triggered", wayfinder.method_routes["tdd"])
-
-        missing = plan_work(
-            WorkRequest(
-                explicit=True,
-                matt_configured=True,
-                required_methods=("tdd",),
-                available_methods=(),
-            )
-        )
-        self.assertEqual(("method_capability_missing",), missing.blockers)
-        self.assertEqual("missing", missing.method_routes["tdd"])
-        self.assertEqual("not_triggered", all_method_routes(("grilling",))["tdd"])
 
     def test_wayfinder_questions_are_not_truss_execution_contracts(self):
         wayfinder = "## Question\n\nWhich persistence model should the destination use?"

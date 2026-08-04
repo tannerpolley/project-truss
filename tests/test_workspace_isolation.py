@@ -5,7 +5,12 @@ import subprocess
 import unittest
 from pathlib import Path
 
-from scripts.lib.workspace_isolation import WorkspaceIsolationError, resolve_workspace_isolation, validate_workspace_receipt
+from scripts.lib.workspace_isolation import (
+    WorkspaceIsolationError,
+    build_workspace_receipt,
+    resolve_workspace_isolation,
+    validate_workspace_receipt,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -83,6 +88,24 @@ class WorkspaceIsolationTests(unittest.TestCase):
         for mutation in mutations:
             with self.subTest(mutation=mutation), self.assertRaises(WorkspaceIsolationError):
                 self.validate({**self.receipt(), **mutation})
+
+    def test_workspace_receipt_is_generated_from_provider_observation(self):
+        decision = resolve_workspace_isolation(
+            REQUEST,
+            {"codex_project_tasks": True, "source_task_id": "task-1", "native_task_status": "not_started"},
+        )
+        observation = {
+            "workspace_id": "workspace-1", "repository_root": "/repo", "git_common_dir": "/repo/.git",
+            "task_id": "task-1", "thread_id": "thread-1", "observed_head": "a" * 40,
+            "head_mode": "branch", "branch": "codex/issue-130", "current_branch": "codex/issue-130",
+            "publication": True,
+        }
+        receipt = build_workspace_receipt(REQUEST, decision, observation)
+        validate_workspace_receipt(
+            receipt, self.expected(), current_head="a" * 40,
+            current_branch="codex/issue-130", publication=True,
+        )
+        self.assertEqual("workspace-1", receipt["workspace_id"])
 
     def test_public_launcher_returns_an_untrusted_action_decision(self):
         process = subprocess.run(

@@ -18,23 +18,40 @@ INVOCABLE_METHODS = (
     "minimize-code-surface", "scientific-coding-and-testing",
 )
 ROUTED_METHODS = INVOCABLE_METHODS
-HARD_TRIGGERS = ("explicit", "merge_or_publication", "release_or_milestone",
-                 "multiple_independent_units", "multi_agent_delegation", "exceeds_safe_context")
+HARD_TRIGGERS = ("release_or_milestone", "multiple_independent_units",
+                 "multi_agent_delegation", "exceeds_safe_context")
+LANES = ("auto", "direct", "light", "governed")
+CHANGE_RISKS = ("low", "normal", "high", "structural")
 ROOT_ISSUE_SECTIONS = (
     "Problem Statement", "Solution", "User Stories", "Implementation Decisions", "Testing Decisions",
     "Out of Scope", "Further Notes",
 )
 LEAF_ISSUE_SECTIONS = ("Parent", "What to build", "Acceptance criteria", "Blocked by")
+STANDALONE_ISSUE_SECTIONS = ("What to build", "Acceptance criteria", "Blocked by")
 ADVISORY_LABELS = {"ready_for_agent": "agent-shaped"}
 RECEIPTS = ("claim", "blocker_or_decision", "handoff", "verified_closeout")
 BLOCKERS = (
-    "authority_required", "decision_required", "github_capability_missing", "method_capability_missing",
-    "contract_incomplete", "dependency_blocked", "claim_conflict", "verification_failed",
+    "authority_required", "decision_required", "github_capability_missing", "github_scope_exceeded", "method_capability_missing",
+    "contract_incomplete", "dependency_blocked", "claim_conflict", "claim_partial", "verification_failed",
     "integration_unhealthy", "state_contradiction", "external_state_unavailable",
 )
 _CONTRACT_KEYS = {
     "version", "public_skills", "skills", "hard_triggers", "root_issue_sections", "leaf_issue_sections",
+    "standalone_issue_sections",
     "advisory_labels", "receipts", "blockers",
+}
+_SECTION_ALIASES = {
+    alias: canonical
+    for canonical, aliases in (
+        ("problem statement", ("context", "problem", "problem statement")),
+        ("acceptance criteria", ("acceptance", "acceptance criteria", "checks")),
+        ("implementation decisions", ("implementation", "implementation decisions")),
+        ("testing decisions", ("testing", "testing decisions")),
+        ("further notes", ("notes", "further notes")),
+        ("what to build", ("scope", "requirements", "build", "what to build")),
+        ("blocked by", ("dependencies", "blocked", "blocked by")),
+    )
+    for alias in aliases
 }
 
 
@@ -73,6 +90,7 @@ def _strings(data: Mapping[str, Any], name: str) -> tuple[str, ...]:
 
 @dataclass(frozen=True)
 class WorkRequest:
+    mode: str = "auto"
     explicit: bool = False
     merge_or_publication: bool = False
     release_or_milestone: bool = False
@@ -85,6 +103,8 @@ class WorkRequest:
     material_rescope: bool = False
     code_change: bool = False
     stable_behavior_change: bool = False
+    scope_complete: bool = False
+    change_risk: str = "normal"
     repository_profile: str = "general"
     grilling_decisions: tuple[str, ...] = ()
     shared_understanding_confirmation: str = ""
@@ -98,6 +118,7 @@ class WorkRequest:
             "explicit", "merge_or_publication", "release_or_milestone",
             "exceeds_safe_context", "material_decision_missing", "matt_configured",
             "new_outcome", "material_rescope", "code_change", "stable_behavior_change",
+            "scope_complete",
         ):
             if name in values:
                 values[name] = _bool(values, name)
@@ -108,10 +129,14 @@ class WorkRequest:
             if name in values:
                 values[name] = _strings(values, name)
         profile = values.get("repository_profile", "general")
-        if not isinstance(profile, str) or profile not in {
-            "general", "application-development", "scientific-computing"
-        }:
+        if not isinstance(profile, str) or profile not in {"general", "application-development", "scientific-computing"}:
             raise ValueError("invalid repository_profile")
+        mode = values.get("mode", "auto")
+        if not isinstance(mode, str) or mode not in LANES:
+            raise ValueError("invalid mode")
+        risk = values.get("change_risk", "normal")
+        if not isinstance(risk, str) or risk not in CHANGE_RISKS:
+            raise ValueError("invalid change_risk")
         failed_gate = values.get("failed_gate", "")
         if not isinstance(failed_gate, str) or failed_gate not in {"", "verification", "review"}:
             raise ValueError("invalid failed_gate")
@@ -133,12 +158,24 @@ class TrussPlan:
     method_routes: Mapping[str, str] | None = None
 
     def to_dict(self) -> dict[str, Any]:
+        next_action = (
+            f"stop: {self.blockers[0]}" if self.next_skill is None and self.blockers
+            else "proceed directly" if not self.next_skill else f"invoke project-truss:{self.next_skill}"
+        )
         return {
             "lane": self.lane, "layers": list(self.layers),
             "question_required": self.question_required, "blockers": list(self.blockers),
             "next_skill": self.next_skill,
-            "next_action": f"stop: {self.blockers[0]}" if self.next_skill is None and self.blockers
-            else "proceed directly" if not self.next_skill else f"invoke project-truss:{self.next_skill}",
+            "next_action": next_action,
+            "continuation": {
+                "status": "blocked" if self.blockers else "continue",
+                "lane": self.lane,
+                "next_skill": self.next_skill,
+                "next_action": next_action,
+                "blockers": list(self.blockers),
+                "evidence": {"method_routes": dict(self.method_routes or {})},
+                "safe_retry_count": 0,
+            },
             "method_routes": dict(self.method_routes or {}),
         }
 
@@ -159,42 +196,58 @@ def all_method_routes(available: tuple[str, ...]) -> dict[str, str]:
 
 
 def plan_work(request: WorkRequest) -> TrussPlan:
-    governed = any((
-        request.explicit, request.merge_or_publication, request.release_or_milestone,
-        request.independent_units > 1, request.delegated_owners > 1, request.exceeds_safe_context,
+    full_governance = any((
+        request.release_or_milestone, request.independent_units > 1,
+        request.delegated_owners > 1, request.exceeds_safe_context,
     ))
-    if not governed:
-        return TrussPlan("direct", (), False, method_routes=_route_methods(set(), (), False))
-    layers = ["leaf", "pull_request"]
+    lane = request.mode
+    if full_governance:
+        lane = "governed"
+    elif lane == "auto":
+        lane = "light" if request.explicit or request.merge_or_publication else "direct"
+    if lane == "direct":
+        blockers = ("decision_required",) if request.material_decision_missing else ()
+        return TrussPlan(
+            "direct", (), bool(blockers), blockers,
+            next_skill="advanced-user-input" if blockers else None,
+            method_routes=_route_methods(set(), (), False),
+        )
+    if lane == "light":
+        layers = ["issue", "pull_request"]
+    else:
+        layers = ["leaf", "pull_request"]
     if request.independent_units > 1:
         layers.insert(0, "parent")
-    if request.release_or_milestone and request.independent_units > 1:
+    if lane == "governed" and request.release_or_milestone and request.independent_units > 1:
         layers.insert(0, "milestone")
-    if not request.matt_configured:
+    if lane == "governed" and not request.matt_configured:
         return TrussPlan(
             "governed", tuple(layers), request.material_decision_missing,
             next_skill="setup",
             method_routes=_route_methods(set(), (), False),
         )
     required = set(request.required_methods)
-    if request.new_outcome or request.material_rescope:
+    if lane == "governed" and (request.new_outcome or request.material_rescope):
         required.update(("grilling", "domain-modeling"))
     if request.code_change:
-        required.update(("code-review", "cutthroat-code-cleanup", "minimize-code-surface"))
-    if request.stable_behavior_change:
+        if lane != "direct":
+            required.add("code-review")
+        if request.change_risk in {"high", "structural"}:
+            required.update(("cutthroat-code-cleanup", "minimize-code-surface"))
+    if request.stable_behavior_change and request.change_risk != "low":
         required.add("tdd")
     if request.code_change and request.repository_profile == "scientific-computing":
         required.add("scientific-coding-and-testing")
     if request.failed_gate:
         required.add("diagnosing-bugs")
-    wayfinding = request.exceeds_safe_context and request.material_decision_missing
-    routes = _route_methods(required, request.available_methods, True)
-    grilling_due = (request.new_outcome or request.material_rescope) and (
+    wayfinding = lane == "governed" and request.exceeds_safe_context and request.material_decision_missing
+    routes = _route_methods(required, request.available_methods, request.matt_configured)
+    grilling_due = lane == "governed" and (request.new_outcome or request.material_rescope) and not request.scope_complete and (
         not request.grilling_decisions or not request.shared_understanding_confirmation
     )
     blockers = tuple(
         code for condition, code in (
-            ("missing" in routes.values(), "method_capability_missing"),
+            (lane == "governed" and "missing" in routes.values(), "method_capability_missing"),
             (grilling_due, "decision_required"),
         ) if condition
     )
@@ -206,13 +259,11 @@ def plan_work(request: WorkRequest) -> TrussPlan:
         else "advanced-user-input"
         if request.material_decision_missing
         else "shape"
-        if request.new_outcome or request.material_rescope
-        else "start"
+        if lane == "governed" and (request.new_outcome or request.material_rescope)
+        else None
     )
-    return TrussPlan(
-        "governed", tuple(layers), request.material_decision_missing or grilling_due,
-        blockers, next_skill, routes,
-    )
+    return TrussPlan(lane, tuple(layers), request.material_decision_missing or grilling_due,
+                     blockers, next_skill, routes)
 
 
 def is_wayfinder_issue(body: str) -> bool:
@@ -230,17 +281,14 @@ class Issue:
     url: str
     body: str = ""
     lifecycle_state: str | None = None
+    state_reason: str = ""
+    labels: tuple[str, ...] = ()
 
     @classmethod
     def from_mapping(cls, data: Mapping[str, Any]) -> "Issue":
-        return cls(
-            number=int(data["number"]),
-            title=str(data["title"]),
-            state=str(data["state"]).upper(),
-            url=str(data["url"]),
-            body=str(data.get("body") or ""),
-            lifecycle_state=str(data["lifecycle_state"]) if data.get("lifecycle_state") else None,
-        )
+        return cls(int(data["number"]), str(data["title"]), str(data["state"]).upper(), str(data["url"]),
+                   str(data.get("body") or ""), str(data["lifecycle_state"]) if data.get("lifecycle_state") else None,
+                   str(data.get("state_reason") or "").upper(), tuple(str(value) for value in data.get("labels", [])))
 
 
 @dataclass(frozen=True)
@@ -257,17 +305,9 @@ class PullRequest:
 
     @classmethod
     def from_mapping(cls, data: Mapping[str, Any]) -> "PullRequest":
-        return cls(
-            number=int(data["number"]),
-            state=str(data["state"]).upper(),
-            url=str(data["url"]),
-            merged=_bool(data, "merged"),
-            merged_at=str(data["merged_at"]) if data.get("merged_at") else None,
-            head_sha=str(data.get("head_sha") or ""),
-            checks_complete=_bool(data, "checks_complete"),
-            checks_successful=_bool(data, "checks_successful"),
-            review_decision=str(data.get("review_decision") or ""),
-        )
+        return cls(int(data["number"]), str(data["state"]).upper(), str(data["url"]), _bool(data, "merged"),
+                   str(data["merged_at"]) if data.get("merged_at") else None, str(data.get("head_sha") or ""),
+                   _bool(data, "checks_complete"), _bool(data, "checks_successful"), str(data.get("review_decision") or ""))
 
 
 @dataclass(frozen=True)
@@ -279,12 +319,8 @@ class Comment:
 
     @classmethod
     def from_mapping(cls, data: Mapping[str, Any]) -> "Comment":
-        return cls(
-            author=str(data.get("author") or ""),
-            body=str(data.get("body") or ""),
-            created_at=str(data.get("created_at") or ""),
-            url=str(data.get("url") or ""),
-        )
+        return cls(str(data.get("author") or ""), str(data.get("body") or ""),
+                   str(data.get("created_at") or ""), str(data.get("url") or ""))
 
 
 @dataclass(frozen=True)
@@ -307,27 +343,23 @@ class OutcomeSnapshot:
     @classmethod
     def from_mapping(cls, data: Mapping[str, Any]) -> "OutcomeSnapshot":
         children = (Issue.from_mapping(value) for value in data.get("children", []))
-        return cls(
-            authoritative=_bool(data, "authoritative"),
-            observed_at=str(data.get("observed_at") or ""),
-            repository=str(data["repository"]),
-            issue=Issue.from_mapping(data["issue"]),
-            assignees=tuple(str(value) for value in data.get("assignees", [])),
-            children=tuple(child for child in children if not is_wayfinder_issue(child.body)),
-            blocked_by=tuple(Issue.from_mapping(value) for value in data.get("blocked_by", [])),
-            blocking=tuple(Issue.from_mapping(value) for value in data.get("blocking", [])),
-            closing_prs=tuple(PullRequest.from_mapping(value) for value in data.get("closing_prs", [])),
-            comments=tuple(Comment.from_mapping(value) for value in data.get("comments", [])),
-            source_urls=tuple(str(value) for value in data.get("source_urls", [])),
-            provider_findings=tuple(str(value) for value in data.get("provider_findings", [])),
-            parent=Issue.from_mapping(data["parent"]) if data.get("parent") else None,
-            milestone=Issue.from_mapping(data["milestone"]) if data.get("milestone") else None,
-        )
+        return cls(_bool(data, "authoritative"), str(data.get("observed_at") or ""), str(data["repository"]),
+                   Issue.from_mapping(data["issue"]), tuple(str(value) for value in data.get("assignees", [])),
+                   tuple(child for child in children if not is_wayfinder_issue(child.body)),
+                   tuple(Issue.from_mapping(value) for value in data.get("blocked_by", [])),
+                   tuple(Issue.from_mapping(value) for value in data.get("blocking", [])),
+                   tuple(PullRequest.from_mapping(value) for value in data.get("closing_prs", [])),
+                   tuple(Comment.from_mapping(value) for value in data.get("comments", [])),
+                   tuple(str(value) for value in data.get("source_urls", [])),
+                   tuple(str(value) for value in data.get("provider_findings", [])),
+                   Issue.from_mapping(data["parent"]) if data.get("parent") else None,
+                   Issue.from_mapping(data["milestone"]) if data.get("milestone") else None)
 
     def to_dict(self) -> dict[str, Any]:
         result = asdict(self)
         for key in ("assignees", "children", "blocked_by", "blocking", "closing_prs", "comments", "source_urls", "provider_findings"):
             result[key] = list(result[key])
+        result["issue"]["labels"] = list(result["issue"]["labels"])
         return result
 
 
@@ -342,13 +374,8 @@ class FinalHealth:
     @classmethod
     def from_mapping(cls, data: Mapping[str, Any]) -> "FinalHealth":
         values = _strict_mapping(data, set(cls.__dataclass_fields__), "final health")
-        return cls(
-            verification_passed=_bool(values, "verification_passed"),
-            integration_healthy=_bool(values, "integration_healthy"),
-            source_clean=_bool(values, "source_clean"),
-            head_sha=str(values.get("head_sha") or ""),
-            review_passed=_bool(values, "review_passed"),
-        )
+        return cls(_bool(values, "verification_passed"), _bool(values, "integration_healthy"),
+                   _bool(values, "source_clean"), str(values.get("head_sha") or ""), _bool(values, "review_passed"))
 
 
 @dataclass(frozen=True)
@@ -359,6 +386,7 @@ class ResolutionReceipt:
     branch: str
     worktree: str
     pull_request: int | None = None
+    collaborators: tuple[str, ...] = ()
     _COMMENT_PREFIX: ClassVar[str] = "Project Truss resolution receipt: "
 
     @classmethod
@@ -385,10 +413,16 @@ class ResolutionReceipt:
         pull_request = values.get("pull_request")
         if pull_request is not None and (type(pull_request) is not int or pull_request < 1):
             raise ValueError("pull_request must be a positive integer")
-        return cls(tuple(sorted(issues)), owner, implementation_base, branch, worktree, pull_request)
+        raw_collaborators = values.get("collaborators", ())
+        if not isinstance(raw_collaborators, (list, tuple)) or any(not isinstance(value, str) or not value.strip() for value in raw_collaborators):
+            raise ValueError("collaborators must be an array of non-empty strings")
+        collaborators = tuple(sorted(value.strip() for value in raw_collaborators))
+        if len(collaborators) != len(set(collaborators)) or owner in collaborators:
+            raise ValueError("collaborators must be unique and must not include owner")
+        return cls(tuple(sorted(issues)), owner, implementation_base, branch, worktree, pull_request, collaborators)
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        result = {
             "issues": list(self.issues),
             "owner": self.owner,
             "implementation_base": self.implementation_base,
@@ -396,6 +430,9 @@ class ResolutionReceipt:
             "worktree": self.worktree,
             "pull_request": self.pull_request,
         }
+        if self.collaborators:
+            result["collaborators"] = list(self.collaborators)
+        return result
 
     def comment(self) -> str:
         return self._COMMENT_PREFIX + json.dumps(
@@ -428,17 +465,10 @@ class ResolutionPlan:
     receipt: ResolutionReceipt
 
     def to_dict(self) -> dict[str, Any]:
-        return {
-            "eligible": self.eligible,
-            "issues": list(self.issues),
-            "internal_dependencies": [
-                {"blocked": blocked, "blocked_by": blocked_by}
-                for blocked, blocked_by in self.internal_dependencies
-            ],
-            "external_blockers": list(self.external_blockers),
-            "blockers": list(self.blockers),
-            "receipt": self.receipt.to_dict(),
-        }
+        return {"eligible": self.eligible, "issues": list(self.issues),
+                "internal_dependencies": [{"blocked": a, "blocked_by": b} for a, b in self.internal_dependencies],
+                "external_blockers": list(self.external_blockers), "blockers": list(self.blockers),
+                "receipt": self.receipt.to_dict()}
 
 
 def _resolution_comment_evidence(
@@ -459,6 +489,27 @@ def _resolution_comment_evidence(
         else:
             recorded.append(parsed)
     return tuple(recorded), _ordered(findings)
+
+
+def _assignees_match(snapshot: OutcomeSnapshot, receipt: ResolutionReceipt) -> bool:
+    assignees = snapshot.assignees
+    if not receipt.collaborators:
+        return assignees == (receipt.owner,)
+    allowed = {receipt.owner, *receipt.collaborators}
+    return bool(assignees) and receipt.owner in assignees and len(assignees) == len(set(assignees)) and set(assignees) <= allowed
+
+
+def _has_valid_claim(snapshot: OutcomeSnapshot) -> bool:
+    if len(snapshot.assignees) == 1:
+        return True
+    for comment in snapshot.comments:
+        try:
+            receipt = ResolutionReceipt.from_comment(comment.body)
+        except (TypeError, ValueError, json.JSONDecodeError):
+            continue
+        if receipt and comment.author == receipt.owner and _assignees_match(snapshot, receipt):
+            return True
+    return False
 
 
 def _resolution_evidence_findings(
@@ -498,20 +549,12 @@ def plan_resolution(
         contract = parse_issue_contract(snapshot.issue.body)
         if not snapshot.authoritative:
             findings.append("external_state_unavailable")
-        if contract.kind != "leaf" or not contract.ok:
+        if contract.kind not in {"leaf", "standalone"} or not contract.ok:
             findings.append("contract_incomplete")
         if snapshot.children or snapshot.issue.state != "OPEN":
             findings.append("state_contradiction")
-        if (
-            require_recorded
-            and snapshot.assignees != (receipt.owner,)
-        ) or (
-            not require_recorded
-            and (
-                len(snapshot.assignees) > 1
-                or snapshot.assignees
-                and snapshot.assignees != (receipt.owner,)
-            )
+        if (require_recorded and not _assignees_match(snapshot, receipt)) or (
+            not require_recorded and snapshot.assignees and not _assignees_match(snapshot, receipt)
         ):
             findings.append("claim_conflict")
         findings.extend(_resolution_evidence_findings(
@@ -557,7 +600,7 @@ def close_resolution_findings(
         contract = parse_issue_contract(snapshot.issue.body)
         if not snapshot.authoritative:
             findings.append("external_state_unavailable")
-        if contract.kind != "leaf" or not contract.ok:
+        if contract.kind not in {"leaf", "standalone"} or not contract.ok:
             findings.append("contract_incomplete")
         if (
             not contract.acceptance_complete
@@ -567,7 +610,7 @@ def close_resolution_findings(
             findings.append("verification_failed")
         if snapshot.issue.state != "CLOSED":
             findings.append("state_contradiction")
-        if snapshot.assignees != (receipt.owner,):
+        if not _assignees_match(snapshot, receipt):
             findings.append("claim_conflict")
         if _open(snapshot.blocked_by):
             findings.append("dependency_blocked")
@@ -616,6 +659,7 @@ def load_contract(path: Path) -> dict[str, Any]:
         "hard_triggers": list(HARD_TRIGGERS),
         "root_issue_sections": list(ROOT_ISSUE_SECTIONS),
         "leaf_issue_sections": list(LEAF_ISSUE_SECTIONS),
+        "standalone_issue_sections": list(STANDALONE_ISSUE_SECTIONS),
         "advisory_labels": ADVISORY_LABELS,
         "receipts": list(RECEIPTS),
         "blockers": list(BLOCKERS),
@@ -634,7 +678,8 @@ def _sections(body: str) -> dict[str, str]:
     duplicates: set[str] = set()
     for index, match in enumerate(matches):
         end = matches[index + 1].start() if index + 1 < len(matches) else len(body)
-        key = match.group(1).strip().casefold()
+        raw_key = match.group(1).strip().casefold()
+        key = _SECTION_ALIASES.get(raw_key, raw_key)
         if key in result:
             duplicates.add(key)
         result[key] = body[match.end():end].strip()
@@ -644,25 +689,22 @@ def _sections(body: str) -> dict[str, str]:
 
 
 def parse_issue_contract(body: str) -> ContractResult:
+    if is_wayfinder_issue(body):
+        return ContractResult("wayfinder", False, ("execution issue contract",), 0, False, {})
+    if re.search(r"(?im)^\s*#{1,6}\s+(?:question|destination|decisions so far|not yet specified)\s*$", body):
+        return ContractResult("mixed", False, ("wayfinder and execution contract",), 0, False, {})
     found = _sections(body)
-    root_present = any(name.casefold() in found for name in ROOT_ISSUE_SECTIONS)
-    leaf_present = any(name.casefold() in found for name in LEAF_ISSUE_SECTIONS)
-    if root_present and leaf_present:
+    root_present = any(name.casefold() in found for name in ROOT_ISSUE_SECTIONS if name != "Further Notes")
+    standalone_present = any(name.casefold() in found for name in STANDALONE_ISSUE_SECTIONS)
+    parent_present = "parent" in found
+    if root_present and standalone_present:
         return ContractResult("mixed", False, ("mixed issue contract",), 0, False, {})
-    if not root_present and not leaf_present:
-        return ContractResult("unknown", False, ("root or leaf issue contract",), 0, False, {})
-    kind = "root" if root_present else "leaf"
-    expected = ROOT_ISSUE_SECTIONS if kind == "root" else LEAF_ISSUE_SECTIONS
-    expected_keys = {name.casefold() for name in expected}
+    if not root_present and not standalone_present:
+        return ContractResult("unknown", False, ("root or standalone issue contract",), 0, False, {})
+    kind = "root" if root_present else "leaf" if parent_present else "standalone"
+    expected = ROOT_ISSUE_SECTIONS if kind == "root" else LEAF_ISSUE_SECTIONS if kind == "leaf" else STANDALONE_ISSUE_SECTIONS
     values = {name: found.get(name.casefold(), "") for name in expected}
     missing = [name for name, value in values.items() if not value]
-    unexpected = [
-        name.strip() for marks, name in re.findall(r"(?m)^(#{1,6})\s+(.+?)\s*$", body)
-        if len(marks) != 2 or name.strip().casefold() not in expected_keys
-    ]
-    if unexpected:
-        details = [*missing, *(f"unexpected section: {name}" for name in unexpected)]
-        return ContractResult(kind, False, tuple(details), 0, False, values)
     if kind == "root":
         stories = re.findall(r"(?m)^\s*\d+\.\s+\S", values["User Stories"])
         if not stories and "User Stories" not in missing:
@@ -670,22 +712,18 @@ def parse_issue_contract(body: str) -> ContractResult:
         acceptance_total = len(stories)
         complete = not missing
     else:
-        parent = values["Parent"]
-        reference = r"(?:#[1-9]\d*|https://\S+/issues/[1-9]\d*)"
-        if parent and re.search(reference, parent) is None:
-            missing.append("Parent")
-        blocked_by = values["Blocked by"]
-        if (
-            blocked_by
-            and not blocked_by.casefold().startswith("none")
-            and re.search(reference, blocked_by) is None
-        ):
-            missing.append("Blocked by")
+        if kind == "leaf":
+            parent = values["Parent"]
+            reference = r"(?:#[1-9]\d*|https://\S+/issues/[1-9]\d*)"
+            if parent and re.search(reference, parent) is None:
+                missing.append("Parent")
+            blocked_by = values["Blocked by"]
+            if blocked_by and not blocked_by.casefold().startswith("none") and re.search(reference, blocked_by) is None:
+                missing.append("Blocked by")
         boxes = re.findall(r"(?im)^\s*[-*]\s*\[([ xX])\]\s+\S", values["Acceptance criteria"])
         if not boxes and "Acceptance criteria" not in missing:
             missing.append("Acceptance criteria")
-        acceptance_total = len(boxes)
-        complete = bool(boxes) and all(value.lower() == "x" for value in boxes)
+        acceptance_total, complete = len(boxes), bool(boxes) and all(value.lower() == "x" for value in boxes)
     return ContractResult(kind, not missing, tuple(missing), acceptance_total, complete, values)
 
 
@@ -696,6 +734,17 @@ def _ordered(findings: list[str]) -> tuple[str, ...]:
 
 def _open(items: tuple[Issue, ...]) -> bool:
     return any(item.state != "CLOSED" for item in items)
+
+
+def _terminal_state(issue: Issue) -> str | None:
+    raw = issue.state_reason or ""
+    match = re.search(r"(?im)^\s*##\s+Disposition\s*$\n+\s*([^\n]+)", issue.body)
+    value = (match.group(1) if match else raw).strip().casefold().replace("_", " ")
+    if value in {"not planned", "cancelled", "canceled", "won't do", "wont do"}:
+        return "Cancelled"
+    if value == "deferred":
+        return "Deferred"
+    return None
 
 
 def _pr_verified(pr: PullRequest) -> bool:
@@ -711,7 +760,7 @@ def closeout_findings(snapshot: OutcomeSnapshot, health: FinalHealth) -> tuple[s
         findings.append("contract_incomplete")
     if _open(snapshot.blocked_by):
         findings.append("dependency_blocked")
-    if (not rollup and len(snapshot.assignees) != 1) or (rollup and len(snapshot.assignees) > 1):
+    if (not rollup and not _has_valid_claim(snapshot)) or (rollup and len(snapshot.assignees) > 1):
         findings.append("claim_conflict")
     prs = snapshot.closing_prs
     if (
@@ -722,8 +771,9 @@ def closeout_findings(snapshot: OutcomeSnapshot, health: FinalHealth) -> tuple[s
         findings.append("verification_failed")
     if not rollup and (len(prs) != 1 or (prs and not _pr_verified(prs[0]))):
         findings.append("verification_failed")
-    incomplete_child = any(child.state != "CLOSED" or child.lifecycle_state != "Done" for child in snapshot.children)
-    contradictory_child = any(child.state == "CLOSED" and child.lifecycle_state != "Done" for child in snapshot.children)
+    terminal_children = {"Done", "Cancelled", "Deferred"}
+    incomplete_child = any(child.state != "CLOSED" or child.lifecycle_state not in terminal_children for child in snapshot.children)
+    contradictory_child = any(child.state == "CLOSED" and child.lifecycle_state not in terminal_children for child in snapshot.children)
     if incomplete_child or not health.integration_healthy:
         findings.append("integration_unhealthy")
     if snapshot.issue.state != "CLOSED":
@@ -744,21 +794,30 @@ def closeout_findings(snapshot: OutcomeSnapshot, health: FinalHealth) -> tuple[s
 def derive_state(snapshot: OutcomeSnapshot) -> str:
     if not snapshot.authoritative:
         return "Blocked"
+    terminal = _terminal_state(snapshot.issue)
+    if snapshot.issue.state == "CLOSED" and terminal:
+        return terminal
     contract = parse_issue_contract(snapshot.issue.body)
-    missing_active_claim = not snapshot.children and bool(snapshot.closing_prs or snapshot.issue.state == "CLOSED") and len(snapshot.assignees) != 1
+    missing_active_claim = not snapshot.children and bool(snapshot.closing_prs or snapshot.issue.state == "CLOSED") and not _has_valid_claim(snapshot)
     blocked = (
         not contract.ok
         or _open(snapshot.blocked_by)
-        or len(snapshot.assignees) > 1
+        or len(snapshot.assignees) > 1 and not _has_valid_claim(snapshot)
         or missing_active_claim
         or bool(snapshot.provider_findings)
-        or snapshot.issue.state == "CLOSED" and any(child.state != "CLOSED" or child.lifecycle_state != "Done" for child in snapshot.children)
+        or snapshot.issue.state == "CLOSED" and any(
+            child.state != "CLOSED" or child.lifecycle_state not in {"Done", "Cancelled", "Deferred"}
+            for child in snapshot.children
+        )
     )
     if blocked:
         return "Blocked"
     if snapshot.issue.state == "CLOSED":
         if snapshot.children:
-            complete = all(child.state == "CLOSED" and child.lifecycle_state == "Done" for child in snapshot.children)
+            complete = all(
+                child.state == "CLOSED" and child.lifecycle_state in {"Done", "Cancelled", "Deferred"}
+                for child in snapshot.children
+            )
             return "Done" if snapshot.authoritative and contract.acceptance_complete and complete else "Blocked"
         if (
             snapshot.authoritative
@@ -788,16 +847,9 @@ class OutcomeDigest:
     observed_at: str
 
     def to_dict(self) -> dict[str, Any]:
-        return {
-            "outcome": self.outcome,
-            "ready_frontier": list(self.ready_frontier),
-            "active": dict(self.active),
-            "blockers_or_decisions": list(self.blockers_or_decisions),
-            "next_safe_action": self.next_safe_action,
-            "source": self.source,
-            "source_urls": list(self.source_urls),
-            "observed_at": self.observed_at,
-        }
+        return {"outcome": self.outcome, "ready_frontier": list(self.ready_frontier), "active": dict(self.active),
+                "blockers_or_decisions": list(self.blockers_or_decisions), "next_safe_action": self.next_safe_action,
+                "source": self.source, "source_urls": list(self.source_urls), "observed_at": self.observed_at}
 
 
 def derive_digest(snapshot: OutcomeSnapshot) -> OutcomeDigest:
@@ -826,7 +878,7 @@ def derive_digest(snapshot: OutcomeSnapshot) -> OutcomeDigest:
         blockers.append("contract_incomplete")
     if _open(snapshot.blocked_by):
         blockers.append("dependency_blocked")
-    if len(snapshot.assignees) > 1:
+    if len(snapshot.assignees) > 1 and not _has_valid_claim(snapshot):
         blockers.append("claim_conflict")
     child_blockers = [f"child #{item.number} is {item.lifecycle_state}" for item in snapshot.children if item.lifecycle_state == "Blocked"]
     active_child = next((item for item in snapshot.children if item.lifecycle_state in {"Claimed", "In review"}), None)
@@ -848,6 +900,8 @@ def derive_digest(snapshot: OutcomeSnapshot) -> OutcomeDigest:
         next_action = f"Review pull request #{snapshot.closing_prs[0].number} and current GitHub evidence."
     elif state == "Done":
         next_action = "No action; the current outcome is done."
+    elif state in {"Cancelled", "Deferred"}:
+        next_action = f"No action; the current outcome is {state.casefold()}."
     else:
         next_action = f"Resolve {(_ordered(blockers) or ('state_contradiction',))[0]} before continuing."
     return OutcomeDigest(

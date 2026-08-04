@@ -1,23 +1,23 @@
 ---
 name: start
-description: Use to begin or resume any Matt-first engineering task; Start grills unclear scope, invokes relevant Matt disciplines, routes Project Truss stages, and continues through verified closeout or a named blocker.
+description: Use to begin or resume Matt-first work; Start selects direct, light, or governed coordination, invokes only relevant Matt disciplines, and continues until completion or a named blocker.
 ---
 
 # Project Truss Start
 
-Own one outcome from classification through verified closeout. Start is the normal beginning for Matt-first work: invoke callable Matt disciplines directly, route Truss stages, re-read authoritative state after each stage, and never stop merely because one method or stage finished. All six Truss skills remain callable for intentional entry. Apply `docs/project-truss/contract.yml` and `docs/project-truss/METHODS.md`.
+Own one outcome from classification through completion. Start is the normal Matt-first entrypoint: choose the smallest lane, invoke callable Matt disciplines directly, re-read authoritative state, consume each continuation token, and keep going until direct completion, a real decision/authority blocker, or verified closeout. Apply `docs/project-truss/contract.yml` and `docs/project-truss/METHODS.md`.
 
 ## Classify and preflight
 
-Resolve the installed plugin root from this skill's location as `PROJECT_TRUSS_ROOT`. Run `"$PROJECT_TRUSS_ROOT/scripts/project-truss.sh" -Action Plan` with a faithful request. Include the repository profile and whether this is code or stable behavior; Plan infers canonical methods. Follow `next_action` and `method_routes`; never ask the user to select an internal skill. Direct work stays direct.
+Resolve the installed plugin root from this skill's location as `PROJECT_TRUSS_ROOT`. Run `"$PROJECT_TRUSS_ROOT/scripts/project-truss.sh" -Action Plan` with a faithful request, including profile, code/behavior seam, risk, and scope completeness. Plan selects `direct`, `light`, or `governed`; follow its `continuation`, `next_action`, and `method_routes` without asking the user to choose an internal skill. Direct work stays direct; light work may show degraded optional methods without stopping.
 
 For an existing pull request, pass `-Repository OWNER/REPO -PullRequest N` to Plan. Plan reads live linked issues and treats their canonical resolution receipt as the claim record. With no matching receipt, review, verify, merge with authority, and safely clean the PR through ordinary Git/GitHub guidance; do not Shape a synthetic leaf or invoke Resolve/Close. A matching receipt remains governed, and unavailable or malformed evidence blocks.
 
-Before governed work, verify `docs/agents/` setup and the actual available Matt skill list. Pass `matt_configured` and `available_methods`; use `required_methods` only for additional task-specific methods. If setup is absent, route to `setup`; after Setup, return here. Missing any inferred or explicit Matt method is `method_capability_missing`; never silently skip it.
+Before governed work, verify `docs/agents/` setup and the actual available Matt skill list. Pass `matt_configured` and `available_methods`; use `required_methods` only for additional task-specific methods. If setup is absent, route to `setup`; after Setup, return here. Missing a triggered governed method is `method_capability_missing`; light work reports the degradation and continues.
 
-## Grill before Shape
+## Grill only when needed
 
-New governed outcomes and material rescope invoke Matt's `grilling` and `domain-modeling` skills directly. Ask decision questions one at a time with a recommendation, look up facts instead of asking, and do not Shape until the user explicitly confirms shared understanding. Capture resolved glossary terms or qualifying ADRs inline; create neither when no domain decision crystallizes.
+Only governed new outcomes or material rescope with incomplete decisions invoke Matt's `grilling` and `domain-modeling` skills directly. Ask one concise question at a time with a recommendation, look up facts instead of asking, and do not Shape until shared understanding is confirmed. Complete, low-risk light requests skip the interview.
 
 Only then pass the actual question/answer decisions in `grilling_decisions` and the user's words in `shared_understanding_confirmation`. Resume an unchanged published issue without repeating the interview.
 
@@ -31,7 +31,7 @@ When a material decision exceeds one safe context, Start owns the native Wayfind
 
 ## Continuation loop
 
-After every Shape, Resolve, Close, failure-recovery, merge, and Cleanup action, return to Start and re-read GitHub, Git, reviews, optional provider checks, and current worktrees. Use Status to choose the next stage from fresh truth. An implementation request authorizes routine in-scope issue, branch, pull-request, guarded merge, and exact outcome cleanup operations; ask only for a genuinely missing material decision or authority boundary.
+After every Shape, Claim, Resolve, Close, failure-recovery, merge, and Cleanup action, consume the returned continuation token, re-read GitHub, Git, reviews, optional provider checks, and worktrees, then perform its named next action in the same turn. An implementation request authorizes routine in-scope issue, branch, pull-request, guarded merge, and exact outcome cleanup operations; ask only for a genuinely missing material decision or authority boundary.
 
 Do not finish at issue publication, implementation, PR creation, review, merge, or pre-cleanup. On verification or review failure, rerun Plan with the matching `failed_gate`, invoke its required `diagnosing-bugs`, repair the cause, and retry. Optional provider checks do not add a lifecycle gate. Stop only on a blocker named in the contract, an intentional Wayfinder handoff, direct-work completion, or verified governed closeout.
 
