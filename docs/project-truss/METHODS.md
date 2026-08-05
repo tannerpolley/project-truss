@@ -10,11 +10,11 @@ Project Truss coordinates durable GitHub outcomes and directly invokes Matt Poco
 | `missing` | A triggered governed method is unavailable, so governed work stops with `method_capability_missing`; light work reports a degradation and continues. |
 | `not_triggered` | The method is known but irrelevant to the current evidence. |
 
-`setup-matt-pocock-skills`, `grill-with-docs`, and Wayfinder are user-invoked or native planning surfaces, not method routes silently chained by another user-invoked skill. Setup applies the repository configuration contract. Start directly invokes `grilling` and `domain-modeling`; Wayfinder remains a native Truss planning artifact.
+`setup-matt-pocock-skills`, `grill-with-docs`, and Wayfinder are user-invoked or native planning surfaces, not method routes silently chained by another user-invoked skill. Setup applies the repository configuration contract. Start directly invokes model-invocable `grilling` and `domain-modeling`; Wayfinder remains a native Truss planning artifact.
 
 ## Adaptive shaping
 
-Matt's current `grill-with-docs` is the engineering wrapper around `grilling` plus `domain-modeling`. Governed outcomes with incomplete scope use that composition: one decision question at a time, repository facts inspected directly, and explicit confirmation before Shape. Complete light requests skip the interview. Domain terms and qualifying ADRs are recorded as they crystallize.
+Matt's current `grill-with-docs` is the engineering wrapper around `grilling` plus `domain-modeling`. Start first reads the repository context glossary, records relevant terms, and routes missing or fuzzy vocabulary through that same composition: one decision question at a time, repository facts inspected directly, and explicit confirmation before Shape. Complete light requests with clear vocabulary skip the interview. Domain terms are written into `CONTEXT.md`; qualifying ADRs are recorded only for surprising, hard-to-reverse trade-offs.
 
 Resume an unchanged published issue without repeating grilling.
 
@@ -26,10 +26,13 @@ Resume an unchanged published issue without repeating grilling.
 | A defect or failed check lacks a demonstrated cause | `diagnosing-bugs` | Reproduction and causal repair |
 | A niche claim needs primary-source evidence | `research` | Canonical research note when useful |
 | Domain language or invariants are ambiguous | `domain-modeling` | `CONTEXT.md` or an ADR |
+| A module boundary or interface needs deliberate design | `codebase-design` | A deep, named module boundary with a small public surface |
 | A design question needs executable evidence | `prototype` | Throwaway branch plus linked verdict |
 | Git reports an active merge or rebase conflict | `resolving-merge-conflicts` | Verified conflict resolution |
 | A shared diff is ready for handoff | `code-review` | Standards report plus per-ticket Spec reports |
 | High-risk or structural code is implemented | `minimize-code-surface`, `cutthroat-code-cleanup` | One minimal canonical implementation |
+| A human must provision, enter secrets, use an unfamiliar dashboard, or perform a one-off migration/cutover | `wizard` | Staged bash wizard for the human; never run it end to end |
+| Skills, `AGENTS.md`, `CLAUDE.md`, or other agent-facing docs change | `writing-for-agents` | Progressive, explicit, single-sourced agent instructions |
 | Scientific-computing code changes | `scientific-coding-and-testing` | Domain invariants, justified tolerances, and scientific verification |
 
 User-invoked Matt workflows such as repository setup and `grill-with-docs` may not be callable as model-invoked methods. Truss does not claim to have invoked them. It directly routes to the installed model-invocable disciplines that provide the required engineering behavior.

@@ -2,6 +2,7 @@ import json
 from contextlib import redirect_stdout
 from io import StringIO
 from pathlib import Path
+import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
@@ -62,9 +63,26 @@ class FrictionReductionTests(unittest.TestCase):
             code = command_project_truss(Context(root / "scripts/project-truss.sh", root, "", "", [], invocation_cwd=root), {"_positional": ["start"]})
         payload = json.loads(output.getvalue())
         self.assertEqual((0, "Plan", "light"), (code, payload["action"], payload["lane"]))
+        self.assertEqual(["context_required"], payload["blockers"])
+        self.assertEqual("review_required", payload["context"]["status"])
+        self.assertIn("CONTEXT.md", payload["context"]["files"])
         plan = plan_work(WorkRequest(explicit=True, code_change=True))
         self.assertEqual((), plan.blockers)
         self.assertEqual("missing", plan.method_routes["code-review"])
+
+    def test_start_reports_missing_context_instead_of_silently_continuing(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            output = StringIO()
+            with redirect_stdout(output):
+                code = command_project_truss(
+                    Context(Path(__file__).resolve().parents[1] / "scripts/project-truss.sh",
+                            Path(__file__).resolve().parents[1], "", "", [], invocation_cwd=root),
+                    {"Action": "Plan", "RequestJson": json.dumps({"explicit": True, "start_entry": True})},
+                )
+        payload = json.loads(output.getvalue())
+        self.assertEqual(0, code)
+        self.assertEqual(("context_required", "missing"), (payload["blockers"][0], payload["context"]["status"]))
 
     def test_cursor_pagination_appends_a_page(self):
         client = GitHubClient(runner=Mock())

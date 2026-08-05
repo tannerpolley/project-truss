@@ -27,7 +27,7 @@ class InstalledProjectTrussTests(unittest.TestCase):
         manifest = json.loads((PLUGIN_ROOT / ".codex-plugin" / "plugin.json").read_text(encoding="utf-8"))
         self.assertEqual(("project-truss", "2.0.0"), (manifest["name"], manifest["version"]))
         self.assertEqual(
-            ["Use $project-truss:start to begin or resume Matt-first work; use $project-truss:setup once per repository and call another Project Truss stage when you intentionally enter it."],
+            ["Use $project-truss:start to begin or resume Matt-first work; read the repository context and shared vocabulary pass, use $project-truss:setup once per repository, and call another Project Truss stage only when intentionally entering it."],
             manifest["interface"]["defaultPrompt"],
         )
         self.assertEqual(SKILLS, {path.parent.name for path in (PLUGIN_ROOT / "skills").glob("*/SKILL.md")})

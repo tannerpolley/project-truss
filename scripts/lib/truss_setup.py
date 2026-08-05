@@ -30,6 +30,13 @@ class SetupError(RuntimeError):
         self.blocker = blocker
 
 
+def discover_context_files(root: Path) -> tuple[str, ...]:
+    """Return the repository's shared-language files in stable relative order."""
+    root = root.resolve()
+    candidates = (root / "CONTEXT.md", root / "CONTEXT-MAP.md", *root.glob("*/CONTEXT.md"))
+    return tuple(sorted({path.relative_to(root).as_posix() for path in candidates if path.is_file()}))
+
+
 @dataclass(frozen=True)
 class SetupRequest:
     repository: str
@@ -123,8 +130,9 @@ def discover_setup_request(root: Path, runner: Callable[..., Any] = subprocess.r
         raise SetupError("state_contradiction", "RepoRoot is not the attached Git root")
     repository = _command_output(root, runner, ["gh", "repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner"], "github_capability_missing")
     instruction_files = [name for name in ("CLAUDE.md", "AGENTS.md") if (root / name).is_file()]
-    contexts = sorted(path.relative_to(root).as_posix() for path in root.glob("*/CONTEXT.md"))
-    signals = (root / "CONTEXT-MAP.md").is_file() or (root / "pnpm-workspace.yaml").is_file() or len(contexts) > 1
+    context_files = discover_context_files(root)
+    contexts = [path for path in context_files if Path(path).name == "CONTEXT.md"]
+    signals = "CONTEXT-MAP.md" in context_files or (root / "pnpm-workspace.yaml").is_file() or len(contexts) > 1
     triage = (root / "docs/agents/triage-labels.md").is_file()
     return SetupRequest(
         repository=repository,
@@ -189,7 +197,8 @@ def _commit(root: Path, outputs: Mapping[Path, str | None]) -> list[str]:
 def apply_setup(root: Path, request: SetupRequest, *, write: bool = True) -> dict[str, Any]:
     root = root.resolve()
     instruction_files = [name for name in ("CLAUDE.md", "AGENTS.md") if (root / name).is_file()]
-    contexts = sorted(path.relative_to(root).as_posix() for path in root.glob("*/CONTEXT.md"))
+    context_files = discover_context_files(root)
+    contexts = [path for path in context_files if Path(path).name == "CONTEXT.md"]
     multi_signals = [name for name in ("CONTEXT-MAP.md", "pnpm-workspace.yaml") if (root / name).is_file()]
     if instruction_files and request.instruction_file != instruction_files[0]:
         raise SetupError("state_contradiction", f"existing instruction preference is {instruction_files[0]}")
@@ -198,7 +207,7 @@ def apply_setup(root: Path, request: SetupRequest, *, write: bool = True) -> dic
     observed = {
         "instruction_files": instruction_files,
         "agent_docs": sorted(path.name for path in (root / "docs/agents").glob("*.md")) if (root / "docs/agents").is_dir() else [],
-        "context_files": [*sorted(path.name for path in root.glob("CONTEXT*.md")), *contexts],
+        "context_files": list(context_files),
         "domain_signals": multi_signals,
         "selected_domain_layout": request.domain_layout,
         "reported_available_methods": list(request.available_methods),

@@ -125,6 +125,7 @@ class DirectAndShapeTests(unittest.TestCase):
                 independent_units=3,
                 matt_configured=True,
                 new_outcome=True,
+                vocabulary_confirmed=True,
                 grilling_decisions=("Which route? -> Continue automatically.",),
                 shared_understanding_confirmation="Confirmed.",
                 available_methods=("grilling", "domain-modeling"),
@@ -146,6 +147,7 @@ class DirectAndShapeTests(unittest.TestCase):
             stable_behavior_change=True, repository_profile="scientific-computing",
             grilling_decisions=("Question -> answer",),
             shared_understanding_confirmation="Confirmed",
+            vocabulary_confirmed=True,
             available_methods=("grilling", "domain-modeling", "tdd", "code-review",
                                "cutthroat-code-cleanup", "minimize-code-surface"),
         )
@@ -160,6 +162,7 @@ class DirectAndShapeTests(unittest.TestCase):
         self.assertIsNone(plan.next_skill)
         self.assertEqual("stop: method_capability_missing", plan.to_dict()["next_action"])
         ungrilled = plan_work(WorkRequest(mode="governed", explicit=True, matt_configured=True, new_outcome=True,
+            vocabulary_confirmed=True,
             available_methods=("grilling", "domain-modeling")))
         self.assertEqual((True, "start", ("decision_required",)),
                          (ungrilled.question_required, ungrilled.next_skill, ungrilled.blockers))
@@ -170,6 +173,45 @@ class DirectAndShapeTests(unittest.TestCase):
         recovery = plan_work(WorkRequest(explicit=True, matt_configured=True, failed_gate="verification",
                                          available_methods=("diagnosing-bugs",)))
         self.assertEqual("invocable", recovery.method_routes["diagnosing-bugs"])
+
+    def test_start_requires_context_review_then_shared_vocabulary(self):
+        base = WorkRequest(
+            mode="governed", explicit=True, start_entry=True, context_available=True,
+            context_files=("CONTEXT.md",), matt_configured=True, new_outcome=True,
+            available_methods=("grilling", "domain-modeling"),
+        )
+        review = plan_work(base)
+        self.assertEqual(("context_required",), review.blockers)
+        self.assertEqual("review_required", review.to_dict()["context"]["status"])
+
+        vocabulary = plan_work(WorkRequest(**{**base.__dict__, "context_reviewed": True}))
+        self.assertEqual(("vocabulary_required",), vocabulary.blockers)
+        self.assertEqual("vocabulary_required", vocabulary.context_status)
+
+        decisions = plan_work(WorkRequest(**{
+            **base.__dict__, "context_reviewed": True, "vocabulary_confirmed": True,
+            "context_terms": ("shared vocabulary",),
+        }))
+        self.assertEqual(("decision_required",), decisions.blockers)
+        complete = plan_work(WorkRequest(**{
+            **base.__dict__, "context_reviewed": True, "vocabulary_confirmed": True,
+            "context_terms": ("shared vocabulary",), "scope_complete": True,
+            "grilling_decisions": ("What is the boundary? -> The repository contract.",),
+            "shared_understanding_confirmation": "Confirmed.",
+        }))
+        self.assertEqual((), complete.blockers)
+        self.assertEqual("shape", complete.next_skill)
+
+    def test_new_matt_1_2_methods_route_from_their_real_triggers(self):
+        wizard = plan_work(WorkRequest(explicit=True, matt_configured=True, manual_procedure=True,
+                                       available_methods=("wizard",)))
+        self.assertEqual("invocable", wizard.method_routes["wizard"])
+        docs = plan_work(WorkRequest(explicit=True, matt_configured=True, agent_document_change=True,
+                                     available_methods=("writing-for-agents",)))
+        self.assertEqual("invocable", docs.method_routes["writing-for-agents"])
+        design = plan_work(WorkRequest(explicit=True, matt_configured=True, design_change=True,
+                                       available_methods=("codebase-design",)))
+        self.assertEqual("invocable", design.method_routes["codebase-design"])
     def test_contract_and_issue_body_fail_closed_as_one_behavior_family(self):
         contract = load_contract(ROOT / "docs/project-truss/contract.yml")
         self.assertEqual(2, contract["version"])

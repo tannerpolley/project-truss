@@ -40,3 +40,5 @@ blockers:
   - integration_unhealthy
   - state_contradiction
   - external_state_unavailable
+  - context_required
+  - vocabulary_required

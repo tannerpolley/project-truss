@@ -9,15 +9,25 @@ from unittest import mock
 
 from scripts.lib.command_support import Context
 from scripts.lib.commands.project import command_project_truss
-from scripts.lib.truss_setup import SetupError, SetupRequest, apply_setup, validate_setup_target
+from scripts.lib.truss_setup import SetupError, SetupRequest, apply_setup, discover_context_files, validate_setup_target
 from scripts.lib.truss_policy import OutcomeSnapshot, derive_digest, parse_issue_contract
 
 ROOT = Path(__file__).resolve().parents[1]
 METHODS = ["grilling", "tdd", "diagnosing-bugs", "research", "domain-modeling", "prototype",
-           "resolving-merge-conflicts", "code-review", "cutthroat-code-cleanup",
-           "minimize-code-surface", "scientific-coding-and-testing"]
+           "resolving-merge-conflicts", "code-review", "codebase-design", "cutthroat-code-cleanup",
+           "minimize-code-surface", "scientific-coding-and-testing", "wizard", "writing-for-agents"]
 
 class SetupRoutingTests(unittest.TestCase):
+    def test_context_discovery_includes_root_map_and_nested_glossaries(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "CONTEXT.md").write_text("# Root\n", encoding="utf-8")
+            (root / "CONTEXT-MAP.md").write_text("# Map\n", encoding="utf-8")
+            nested = root / "service"
+            nested.mkdir()
+            (nested / "CONTEXT.md").write_text("# Service\n", encoding="utf-8")
+            self.assertEqual(("CONTEXT-MAP.md", "CONTEXT.md", "service/CONTEXT.md"), discover_context_files(root))
+
     def test_setup_is_idempotent_and_preserves_unrelated_instructions(self):
         with tempfile.TemporaryDirectory() as directory:
             project = Path(directory)

@@ -14,8 +14,8 @@ SKILLS = ("setup", "start", "shape", "resolve", "close", "advanced-user-input")
 PUBLIC_SKILLS = SKILLS
 INVOCABLE_METHODS = (
     "grilling", "tdd", "diagnosing-bugs", "research", "domain-modeling", "prototype",
-    "resolving-merge-conflicts", "code-review", "cutthroat-code-cleanup",
-    "minimize-code-surface", "scientific-coding-and-testing",
+    "resolving-merge-conflicts", "code-review", "codebase-design", "cutthroat-code-cleanup",
+    "minimize-code-surface", "scientific-coding-and-testing", "wizard", "writing-for-agents",
 )
 ROUTED_METHODS = INVOCABLE_METHODS
 HARD_TRIGGERS = ("release_or_milestone", "multiple_independent_units",
@@ -33,7 +33,8 @@ RECEIPTS = ("claim", "blocker_or_decision", "handoff", "verified_closeout")
 BLOCKERS = (
     "authority_required", "decision_required", "github_capability_missing", "github_scope_exceeded", "method_capability_missing",
     "contract_incomplete", "dependency_blocked", "claim_conflict", "claim_partial", "verification_failed",
-    "integration_unhealthy", "state_contradiction", "external_state_unavailable",
+    "integration_unhealthy", "state_contradiction", "external_state_unavailable", "context_required",
+    "vocabulary_required",
 )
 _CONTRACT_KEYS = {
     "version", "public_skills", "skills", "hard_triggers", "root_issue_sections", "leaf_issue_sections",
@@ -111,6 +112,15 @@ class WorkRequest:
     failed_gate: str = ""
     required_methods: tuple[str, ...] = ()
     available_methods: tuple[str, ...] = ()
+    start_entry: bool = False
+    context_available: bool | None = None
+    context_reviewed: bool = False
+    context_files: tuple[str, ...] = ()
+    context_terms: tuple[str, ...] = ()
+    vocabulary_confirmed: bool = False
+    manual_procedure: bool = False
+    agent_document_change: bool = False
+    design_change: bool = False
     @classmethod
     def from_mapping(cls, data: Mapping[str, Any]) -> "WorkRequest":
         values = _strict_mapping(data, set(cls.__dataclass_fields__), "work request")
@@ -118,14 +128,17 @@ class WorkRequest:
             "explicit", "merge_or_publication", "release_or_milestone",
             "exceeds_safe_context", "material_decision_missing", "matt_configured",
             "new_outcome", "material_rescope", "code_change", "stable_behavior_change",
-            "scope_complete",
+            "scope_complete", "start_entry", "context_reviewed", "vocabulary_confirmed",
+            "manual_procedure", "agent_document_change", "design_change",
         ):
             if name in values:
                 values[name] = _bool(values, name)
+        if "context_available" in values and values["context_available"] is not None:
+            values["context_available"] = _bool(values, "context_available")
         for name in ("independent_units", "delegated_owners"):
             if name in values:
                 values[name] = _positive_int(values, name)
-        for name in ("required_methods", "available_methods", "grilling_decisions"):
+        for name in ("required_methods", "available_methods", "grilling_decisions", "context_files", "context_terms"):
             if name in values:
                 values[name] = _strings(values, name)
         profile = values.get("repository_profile", "general")
@@ -156,6 +169,9 @@ class TrussPlan:
     blockers: tuple[str, ...] = ()
     next_skill: str | None = None
     method_routes: Mapping[str, str] | None = None
+    context_status: str = "not_required"
+    context_files: tuple[str, ...] = ()
+    context_terms: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         next_action = (
@@ -166,6 +182,11 @@ class TrussPlan:
             "lane": self.lane, "layers": list(self.layers),
             "question_required": self.question_required, "blockers": list(self.blockers),
             "next_skill": self.next_skill,
+            "context": {
+                "status": self.context_status,
+                "files": list(self.context_files),
+                "terms": list(self.context_terms),
+            },
             "next_action": next_action,
             "continuation": {
                 "status": "blocked" if self.blockers else "continue",
@@ -173,7 +194,14 @@ class TrussPlan:
                 "next_skill": self.next_skill,
                 "next_action": next_action,
                 "blockers": list(self.blockers),
-                "evidence": {"method_routes": dict(self.method_routes or {})},
+                "evidence": {
+                    "method_routes": dict(self.method_routes or {}),
+                    "context": {
+                        "status": self.context_status,
+                        "files": list(self.context_files),
+                        "terms": list(self.context_terms),
+                    },
+                },
                 "safe_retry_count": 0,
             },
             "method_routes": dict(self.method_routes or {}),
@@ -195,6 +223,16 @@ def all_method_routes(available: tuple[str, ...]) -> dict[str, str]:
     return {method: "invocable" if method in available else "not_triggered" for method in ROUTED_METHODS}
 
 
+def _context_status(request: WorkRequest) -> str:
+    if not request.start_entry:
+        return "not_required"
+    if request.context_available is None:
+        return "not_observed"
+    if not request.context_available:
+        return "missing"
+    return "reviewed" if request.context_reviewed else "review_required"
+
+
 def plan_work(request: WorkRequest) -> TrussPlan:
     full_governance = any((
         request.release_or_milestone, request.independent_units > 1,
@@ -206,11 +244,20 @@ def plan_work(request: WorkRequest) -> TrussPlan:
     elif lane == "auto":
         lane = "light" if request.explicit or request.merge_or_publication else "direct"
     if lane == "direct":
-        blockers = ("decision_required",) if request.material_decision_missing else ()
+        context_required = request.start_entry and (
+            request.context_available is None or not request.context_available or not request.context_reviewed
+        )
+        blockers = tuple(code for condition, code in (
+            (context_required, "context_required"),
+            (request.material_decision_missing, "decision_required"),
+        ) if condition)
         return TrussPlan(
             "direct", (), bool(blockers), blockers,
-            next_skill="advanced-user-input" if blockers else None,
+            next_skill="start" if context_required else "advanced-user-input" if blockers else None,
             method_routes=_route_methods(set(), (), False),
+            context_status=_context_status(request),
+            context_files=request.context_files,
+            context_terms=request.context_terms,
         )
     if lane == "light":
         layers = ["issue", "pull_request"]
@@ -225,6 +272,9 @@ def plan_work(request: WorkRequest) -> TrussPlan:
             "governed", tuple(layers), request.material_decision_missing,
             next_skill="setup",
             method_routes=_route_methods(set(), (), False),
+            context_status=_context_status(request),
+            context_files=request.context_files,
+            context_terms=request.context_terms,
         )
     required = set(request.required_methods)
     if lane == "governed" and (request.new_outcome or request.material_rescope):
@@ -240,13 +290,25 @@ def plan_work(request: WorkRequest) -> TrussPlan:
         required.add("scientific-coding-and-testing")
     if request.failed_gate:
         required.add("diagnosing-bugs")
+    if request.manual_procedure:
+        required.add("wizard")
+    if request.agent_document_change:
+        required.add("writing-for-agents")
+    if request.design_change:
+        required.add("codebase-design")
     wayfinding = lane == "governed" and request.exceeds_safe_context and request.material_decision_missing
     routes = _route_methods(required, request.available_methods, request.matt_configured)
+    context_required = request.start_entry and (
+        request.context_available is None or not request.context_available or not request.context_reviewed
+    )
+    vocabulary_required = lane == "governed" and (request.new_outcome or request.material_rescope) and not context_required and not request.vocabulary_confirmed
     grilling_due = lane == "governed" and (request.new_outcome or request.material_rescope) and not request.scope_complete and (
         not request.grilling_decisions or not request.shared_understanding_confirmation
-    )
+    ) and not context_required and not vocabulary_required
     blockers = tuple(
         code for condition, code in (
+            (context_required, "context_required"),
+            (vocabulary_required, "vocabulary_required"),
             (lane == "governed" and "missing" in routes.values(), "method_capability_missing"),
             (grilling_due, "decision_required"),
         ) if condition
@@ -255,15 +317,18 @@ def plan_work(request: WorkRequest) -> TrussPlan:
         None
         if "method_capability_missing" in blockers
         else "start"
-        if wayfinding or grilling_due
+        if context_required or vocabulary_required or wayfinding or grilling_due
         else "advanced-user-input"
         if request.material_decision_missing
         else "shape"
         if lane == "governed" and (request.new_outcome or request.material_rescope)
         else None
     )
-    return TrussPlan(lane, tuple(layers), request.material_decision_missing or grilling_due,
-                     blockers, next_skill, routes)
+    context_status = "vocabulary_required" if vocabulary_required else _context_status(request)
+    return TrussPlan(
+        lane, tuple(layers), request.material_decision_missing or context_required or vocabulary_required or grilling_due,
+        blockers, next_skill, routes, context_status, request.context_files, request.context_terms,
+    )
 
 
 def is_wayfinder_issue(body: str) -> bool:

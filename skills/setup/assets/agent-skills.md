@@ -8,4 +8,4 @@ Project Truss uses GitHub-native root and leaf issues. See `docs/agents/issue-tr
 
 ### Domain docs
 
-Read the configured domain context and ADRs. See `docs/agents/domain.md`.
+Read the configured domain context and ADRs before shaping or implementation; Start records the relevant shared terms and asks Matt's domain-modeling/grilling disciplines about ambiguity. See `docs/agents/domain.md`.

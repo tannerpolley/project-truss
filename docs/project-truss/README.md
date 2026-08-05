@@ -28,7 +28,9 @@ Each stage returns a continuation token with the next action, evidence, blockers
 - `close` runs shared Standards review, per-ticket Spec review, verification, merge, and roll-up;
 - `advanced-user-input` handles only material decisions or authority.
 
-Before governed work, Start verifies repository setup and required method capabilities. Missing setup routes to Setup. Each method is reported as `invocable`, `missing`, or `not_triggered`; only a triggered `missing` method blocks governed work. Light work reports missing optional methods without blocking. Complete low-risk requests skip grilling; genuine ambiguity still routes to `advanced-user-input`.
+Before any new Start entry, Start reads the configured `CONTEXT.md` or `CONTEXT-MAP.md` and nearest context, extracts the relevant shared terms, and reports the context files and vocabulary status in Plan. Missing context or unreviewed vocabulary routes back to Start; missing or fuzzy terms invoke Matt's `domain-modeling` plus `grilling` one question at a time and update the glossary. Governed new outcomes and material rescope must confirm vocabulary before Shape; clear light work may continue without an interview. Context is a glossary, not a lifecycle ledger.
+
+Before governed work, Start verifies repository setup and required method capabilities. Missing setup routes to Setup. Each method is reported as `invocable`, `missing`, or `not_triggered`; only a triggered `missing` method blocks governed work. Light work reports missing optional methods without blocking. Current model-invocable routes include `codebase-design`, `wizard`, and `writing-for-agents` in addition to the engineering disciplines listed in `METHODS.md`.
 
 For an existing PR, Start runs Plan with `-Repository OWNER/REPO -PullRequest N`. Plan reads the PR's linked closing issues and canonical resolution receipts from live GitHub. No matching receipt means ordinary review, merge authority, and safe Git cleanup without Shape, Resolve, Close, a synthetic leaf, or `ResolutionJson`; a matching receipt retains the full governed lifecycle. Unavailable or malformed evidence blocks.
 

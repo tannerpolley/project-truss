@@ -26,7 +26,7 @@ Resolve the installed Project Truss plugin root from this skill's location and s
 
 ```bash
 "$PROJECT_TRUSS_ROOT/scripts/project-truss.sh" -Action Setup -RepoRoot . -SetupJson \
-  '{"repository":"OWNER/REPO","instruction_file":"AGENTS.md","domain_layout":"single-context","triage_enabled":true,"available_methods":["grilling","tdd","diagnosing-bugs","research","domain-modeling","prototype","resolving-merge-conflicts","code-review","cutthroat-code-cleanup","minimize-code-surface","scientific-coding-and-testing"]}'
+  '{"repository":"OWNER/REPO","instruction_file":"AGENTS.md","domain_layout":"single-context","triage_enabled":true,"available_methods":["grilling","tdd","diagnosing-bugs","research","domain-modeling","prototype","resolving-merge-conflicts","code-review","codebase-design","cutthroat-code-cleanup","minimize-code-surface","scientific-coding-and-testing","wizard","writing-for-agents"]}'
 ```
 
 The Setup action verifies that `RepoRoot`, its GitHub remote, and authenticated `gh` all match the selected repository. It verifies existing instruction preference and strong multi-context signals, records the inspected evidence, and idempotently owns bounded sections in one `## Agent skills` block plus `docs/agents/issue-tracker.md`, `domain.md`, and optional `triage-labels.md`. Preserve unrelated instructions and re-read every output. If unmarked existing guidance conflicts with the draft, resolve that material choice before applying; the action preserves it outside the managed section. Method availability is reported honestly; setup does not invent it.
@@ -37,4 +37,4 @@ The Setup action verifies that `RepoRoot`, its GitHub remote, and authenticated 
 - `missing`: a triggered governed method that is unavailable; stop as `method_capability_missing`.
 - `not_triggered`: available or known but irrelevant to the current work; do not load it.
 
-Setup is native Truss configuration, not a Matt method. Wayfinder decision maps are native Truss planning artifacts that clarify foggy destinations before Shape; they never become execution contracts or lifecycle evidence. Return to Start after setup and let Start choose the next stage.
+Setup is native Truss configuration, not a Matt method. Wayfinder decision maps are native Truss planning artifacts that clarify foggy destinations before Shape; they never become execution contracts or lifecycle evidence. Return to Start after setup, complete the context/vocabulary pass, and let Start choose the next stage.

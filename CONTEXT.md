@@ -2,7 +2,14 @@
 
 Project Truss coordinates durable coding outcomes without replacing engineering technique or native provider truth.
 
-## Core language
+This file is the repository's shared glossary and conceptual language. Procedures live in skills and runtime documentation; lifecycle state remains in GitHub, Git, reviews, integration, and current worktrees.
+
+## Language
+
+- **Context pass:** Start's read-and-confirm step that identifies the relevant context files and canonical terms before shaping or implementation.
+- **Shared vocabulary:** The project-specific terms that must have one clear meaning across issues, code, reviews, and agents.
+- **Vocabulary confirmation:** An explicit acknowledgement that the relevant terms are present, clear, and non-conflicting; it is not a substitute for scope completion.
+- **Human-only procedure:** A provisioning, secret, unfamiliar-dashboard, migration, or cutover step that an agent cannot safely perform; it routes to Matt's `wizard`.
 
 - **Direct work:** work that can safely complete without durable Truss coordination.
 - **Light work:** one issue/PR with native GitHub evidence but without a parent, resolution set, milestone, or full governed ceremony.

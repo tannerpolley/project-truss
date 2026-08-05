@@ -13,7 +13,7 @@ try:
         synchronize_default, validate_preparation,
     )
     from ..truss_github import GitHubClient, GitHubObservationError, ProjectProjection, load_fixture
-    from ..truss_setup import SetupError, SetupRequest, apply_setup, discover_setup_request, validate_setup_target
+    from ..truss_setup import SetupError, SetupRequest, apply_setup, discover_context_files, discover_setup_request, validate_setup_target
     from ..truss_policy import (
         FinalHealth,
         ResolutionReceipt,
@@ -34,7 +34,7 @@ except ImportError:
         synchronize_default, validate_preparation,
     )
     from truss_github import GitHubClient, GitHubObservationError, ProjectProjection, load_fixture
-    from truss_setup import SetupError, SetupRequest, apply_setup, discover_setup_request, validate_setup_target
+    from truss_setup import SetupError, SetupRequest, apply_setup, discover_context_files, discover_setup_request, validate_setup_target
     from truss_policy import (
         FinalHealth,
         ResolutionReceipt,
@@ -225,12 +225,19 @@ def command_project_truss(ctx: Context, args: dict[str, Any]) -> int:
     }.get(raw_action, raw_action.title())
     if action == "Plan":
         request, _ = read_json_arg(root, args, "RequestJson", "RequestPath", required=False)
-        if request is None and raw_action == "start":
-            request = {"explicit": True}
-        work = WorkRequest.from_mapping(request or {})
+        request_data = dict(request or {})
+        if raw_action == "start":
+            request_data.setdefault("explicit", True)
+            request_data.setdefault("start_entry", True)
         repository, pull_request = str(arg_value(args, "Repository", default="")), arg_value(args, "PullRequest")
         if bool(repository) != (pull_request not in (None, "")):
             raise ScriptError("Repository and PullRequest must be provided together")
+        if repository:
+            request_data["start_entry"] = False
+        elif request_data.get("start_entry"):
+            context_files = discover_context_files(root)
+            request_data.update({"context_available": bool(context_files), "context_files": list(context_files)})
+        work = WorkRequest.from_mapping(request_data)
         if repository:
             try:
                 number = int(pull_request)
@@ -239,7 +246,7 @@ def command_project_truss(ctx: Context, args: dict[str, Any]) -> int:
             if number < 1:
                 raise ScriptError("PullRequest must be a positive integer")
             governed = GitHubClient().pull_request_is_governed(repository, number)
-            work = WorkRequest.from_mapping({**(request or {}), "mode": "governed", "merge_or_publication": True}) if governed else WorkRequest()
+            work = WorkRequest.from_mapping({**request_data, "mode": "governed", "merge_or_publication": True}) if governed else WorkRequest()
         result = plan_work(work).to_dict()
         return emit({"ok": True, "action": action, "source": "live" if repository else "policy", **result})
     if action == "Setup":
