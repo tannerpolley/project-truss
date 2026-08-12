@@ -21,131 +21,8 @@ from truss_policy import load_contract
 
 
 SKILLS = {"setup", "start", "shape", "resolve", "close", "advanced-user-input"}
-OUTCOME_FIELDS = [
-    "Intent", "Current Behavior", "Expected Outcome", "Target Output", "Owner", "Interface",
-    "Cutover", "Replaced Path", "Evidence", "Acceptance Proof", "Stop Criteria", "Avoid", "Risk",
-]
-BOUNDARY_FIELDS = [
-    "Files To Create", "Files To Modify", "Files To Avoid", "Source Of Truth", "Read Path", "Write Path",
-    "Integration Points", "Migration Or Cutover", "Replaced Path Handling", "Acceptance Proof Gate",
-]
-
-
 def active_skill_names(root: Path) -> list[str]:
     return sorted(path.name for path in (root / "skills").iterdir() if path.is_dir())
-
-
-def markdown_section(text: str, name: str) -> str | None:
-    match = re.search(rf"(?ims)^\s{{0,3}}##\s+{re.escape(name)}\s*$\r?\n(?P<body>.*?)(?=^\s{{0,3}}##\s+|\Z)", text)
-    return match.group("body") if match else None
-
-
-def field_value(text: str, name: str) -> str | None:
-    escaped = re.escape(name)
-    for pattern in (
-        rf"(?im)^\s*\*\*{escaped}\s*:\s*\*\*\s*(.+?)\s*$",
-        rf"(?im)^\s*\*\*{escaped}\*\*\s*:\s*(.+?)\s*$",
-        rf"(?im)^\s*{escaped}\s*:\s*(.+?)\s*$",
-    ):
-        match = re.search(pattern, text)
-        if match:
-            return match.group(1).strip()
-    return None
-
-
-def _concrete(field: str, value: str | None) -> tuple[bool, str]:
-    if value is None or not value.strip():
-        return False, f"{field} is empty"
-    if re.match(r"^(tbd|none|n/a|na|not applicable|same as above|-)$", value.strip(), re.I):
-        return False, f"{field} uses a generic value"
-    if field == "Acceptance Proof" and re.match(r"^(tests? pass(?:ed)?|unit tests? pass(?:ed)?|lint pass(?:ed)?|diff reviewed)$", value.strip(), re.I):
-        return False, "Acceptance Proof must prove behavior, not only tests or diffs"
-    return True, "passed"
-
-
-def _required_fields(section: str, fields: list[str], label: str) -> tuple[bool, str, dict[str, str]]:
-    values: dict[str, str] = {}
-    for field in fields:
-        value = field_value(section, field)
-        ok, reason = _concrete(field, value)
-        if not ok:
-            return False, f"{label} {reason}", values
-        values[field] = value or ""
-    return True, "passed", values
-
-
-def task_blocks(lines: list[str]) -> list[dict[str, Any]]:
-    matches = []
-    for index, line in enumerate(lines):
-        match = re.match(r"^\s{0,3}#{2,4}\s+Task\s+(?P<number>\d+)\s*[:.-]\s*(?P<title>.+?)\s*$", line)
-        if match:
-            matches.append({"number": int(match.group("number")), "title": match.group("title").strip(), "start": index})
-    return [
-        {**item, "lines": lines[item["start"]:(matches[index + 1]["start"] if index + 1 < len(matches) else len(lines))]}
-        for index, item in enumerate(matches)
-    ]
-
-
-def _use_cases(block: dict[str, Any]) -> list[str]:
-    lines = block["lines"]
-    start = next((index for index, line in enumerate(lines) if re.match(r"^\s*\*\*Use Cases:\*\*\s*$", line)), -1)
-    if start < 0:
-        return []
-    cases = []
-    for line in lines[start + 1:]:
-        if re.match(r"^\s{0,3}#{1,6}\s+", line) or re.match(r"^\s*\*\*[^*]+:\*\*\s*$", line):
-            break
-        if re.match(r"^\s*[-*]\s+\S", line) or re.match(r"^\s*\d+\.\s+\S", line):
-            cases.append(line.strip())
-    return cases
-
-
-def test_plan_outcome_proof(text: str) -> dict[str, Any]:
-    outcome = markdown_section(text, "Outcome Proof")
-    boundaries = markdown_section(text, "Implementation Boundaries")
-    if outcome is None:
-        return {"ok": False, "phase": "plan-outcome-proof", "reason": "missing ## Outcome Proof"}
-    if boundaries is None:
-        return {"ok": False, "phase": "plan-outcome-proof", "reason": "missing ## Implementation Boundaries"}
-    ok, reason, outcome_values = _required_fields(outcome, OUTCOME_FIELDS, "Outcome Proof")
-    if not ok:
-        return {"ok": False, "phase": "plan-outcome-proof", "reason": reason}
-    ok, reason, boundary_values = _required_fields(boundaries, BOUNDARY_FIELDS, "Implementation Boundaries")
-    if not ok:
-        return {"ok": False, "phase": "plan-outcome-proof", "reason": reason}
-    cases = "\n".join(case for block in task_blocks(text.splitlines()) for case in _use_cases(block)).lower()
-    if not cases or not re.search(r"acceptance|evidence|proof|validator|visible", cases) or not re.search(r"cutover|migration|duplicate|retire|redirect|delete", cases):
-        return {"ok": False, "phase": "plan-outcome-proof", "reason": "Task use cases must cover evidence and displaced-path handling"}
-    return {"ok": True, "phase": "plan-outcome-proof", "reason": "outcome proof passed", "fields": {"outcome_proof": outcome_values, "implementation_boundaries": boundary_values}}
-
-
-def _artifact(root: Path, args: dict[str, Any], name: str) -> tuple[Path, str]:
-    value = arg_value(args, name)
-    if not value:
-        raise ScriptError(f"{name} is required")
-    path = project_path_for(root, str(value), name)
-    if not path.is_file():
-        raise ScriptError(f"artifact does not exist: {value}")
-    return path, normalize_rel(path, root)
-
-
-def command_validate_plan_task_use_cases(ctx: Context, args: dict[str, Any]) -> int:
-    root = project_root_for(ctx, args)
-    path, rel = _artifact(root, args, "PlanPath")
-    blocks = task_blocks(read_text(path).splitlines())
-    if not blocks:
-        raise ScriptError("plan has no numbered Task sections")
-    results = [{"task": f"Task {block['number']}", "title": block["title"], "use_case_count": len(_use_cases(block)), "ok": bool(_use_cases(block))} for block in blocks]
-    ok = all(item["ok"] for item in results)
-    return emit({"ok": ok, "phase": "plan-task-use-cases", "plan_path": rel, "task_count": len(blocks), "tasks": results}, 0 if ok else 1)
-
-
-def command_validate_plan_outcome_proof(ctx: Context, args: dict[str, Any]) -> int:
-    root = project_root_for(ctx, args)
-    path, rel = _artifact(root, args, "PlanPath")
-    result = test_plan_outcome_proof(read_text(path))
-    result["plan_path"] = rel
-    return emit(result, 0 if result["ok"] else 1)
 
 
 def command_validate_skill_metadata_contract(ctx: Context, args: dict[str, Any]) -> int:
@@ -177,8 +54,8 @@ def _text_files(root: Path) -> list[Path]:
 
 def _validate_source(root: Path) -> None:
     manifest = json.loads(read_text(root / ".codex-plugin" / "plugin.json"))
-    if manifest.get("name") != "project-truss" or manifest.get("version") != "2.0.0":
-        raise ScriptError("manifest identity must be project-truss 2.0.0")
+    if manifest.get("name") != "project-truss" or manifest.get("version") != "3.0.0":
+        raise ScriptError("manifest identity must be project-truss 3.0.0")
     if set(active_skill_names(root)) != SKILLS:
         raise ScriptError("active skill inventory must be exactly " + ", ".join(sorted(SKILLS)))
     if len(read_text(root / "README.md").splitlines()) > 150:
@@ -205,7 +82,7 @@ def _validate_source(root: Path) -> None:
             for item in template.get("body", [])
         ]
         if labels != expected or template.get("labels") != []:
-            raise ScriptError(f"{filename} does not match the Project Truss 2.0 contract")
+            raise ScriptError(f"{filename} does not match the Project Truss 3.0 contract")
     load_contract(root / "docs" / "project-truss" / "contract.yml")
     load_command_catalog(root)
     package = load_runtime_package(root)
@@ -285,9 +162,6 @@ def command_validate(ctx: Context, args: dict[str, Any]) -> int:
         step("skill surface", lambda: not validate_skill_slimming(root)[0] or (_ for _ in ()).throw(ScriptError(str(validate_skill_slimming(root)[0]))))
         step("lean budgets", lambda: _line_budgets(root))
         step("release wiring", lambda: load_handlers()["command_prepare_release"](ctx, {"RepoRoot": str(root), "CheckOnly": True}) == 0 or (_ for _ in ()).throw(ScriptError("release wiring failed")))
-        receipts = root / ".project-truss" / "runs" / "agent-trials" / "current"
-        if receipts.is_dir():
-            step("fresh-agent receipts", lambda: load_handlers()["command_validate_agent_usability_receipt"](ctx, {"RepoRoot": str(root), "ReceiptDir": str(receipts)}) == 0 or (_ for _ in ()).throw(ScriptError("agent receipts failed")))
         return emit({"ok": True, "repo_root": str(root), "line_budgets": _line_budgets(root), "checks": checks})
     except Exception as exc:
         return emit({"ok": False, "repo_root": str(root), "reason": str(exc), "checks": checks}, 1)

@@ -1,5 +1,5 @@
 interface:
   capabilities: [filesystem.read, filesystem.write, shell, git, github, native.user-input]
   display_name: "Resolve"
-  short_description: "Claim, implement, review, and publish a Ready set."
-  default_prompt: "Use $project-truss:resolve to claim a selected Ready leaf or set, apply direct Matt disciplines, publish one pull request, and return to Start."
+  short_description: "Claim and execute a profile-specific Ready outcome."
+  default_prompt: "Use $project-truss:resolve to claim a selected Ready issue or atomic set, run the application or scientific protocol with relevant Matt techniques, publish a pull request when needed, and return to Start."

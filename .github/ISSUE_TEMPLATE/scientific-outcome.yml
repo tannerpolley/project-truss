@@ -1,0 +1,60 @@
+name: Scientific outcome
+description: Publish a decomposed scientific question and falsifiable claims.
+title: ""
+labels: []
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: Scientific Question
+    validations:
+      required: true
+  - type: textarea
+    id: claims
+    attributes:
+      label: Falsifiable Claims
+      description: List claims and the observation that would falsify each one.
+      value: "- "
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence and Sources
+      description: Name primary sources, data provenance, units, conventions, and model versions.
+    validations:
+      required: true
+  - type: textarea
+    id: formulation
+    attributes:
+      label: Mathematical or Numerical Formulation
+      description: Record equations, assumptions, valid domain, and numerical method.
+    validations:
+      required: true
+  - type: textarea
+    id: benchmark
+    attributes:
+      label: Benchmark and Validation Plan
+      description: Name independent oracles, experiments, certificates, tolerance bases, and reproducibility evidence.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance and Falsification Criteria
+      description: Include supported positive, negative, and inconclusive outcomes.
+      value: "- [ ] "
+    validations:
+      required: true
+  - type: textarea
+    id: out_of_scope
+    attributes:
+      label: Out of Scope
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Further Notes
+    validations:
+      required: true

@@ -20,7 +20,7 @@ from scripts.lib.package_provenance import (
 
 ROOT = Path(__file__).resolve().parents[1]
 SKILLS = {"setup", "start", "shape", "resolve", "close", "advanced-user-input"}
-PROMPT = "Use $project-truss:start to begin or resume Matt-first work; read the repository context and shared vocabulary pass, use $project-truss:setup once per repository, and call another Project Truss stage only when intentionally entering it."
+PROMPT = "Use $project-truss:start to begin or resume profile-aware work; establish shared vocabulary and the application behavior or falsifiable scientific claim, invoke relevant Matt techniques, and continue through truthful closeout. Use $project-truss:setup once per repository."
 
 
 class RuntimePackageTests(unittest.TestCase):
@@ -34,7 +34,7 @@ class RuntimePackageTests(unittest.TestCase):
     def test_source_manifest_is_the_compact_project_truss_surface(self):
         plugin = json.loads((ROOT / ".codex-plugin" / "plugin.json").read_text(encoding="utf-8"))
         self.assertEqual("project-truss", plugin["name"])
-        self.assertEqual("2.0.0", plugin["version"])
+        self.assertEqual("3.0.0", plugin["version"])
         self.assertEqual("Project Truss", plugin["interface"]["displayName"])
         self.assertEqual([PROMPT], plugin["interface"]["defaultPrompt"])
         self.assertEqual(SKILLS, {path.parent.name for path in (ROOT / "skills").glob("*/SKILL.md")})
@@ -45,6 +45,8 @@ class RuntimePackageTests(unittest.TestCase):
             "docs/project-truss/contract.yml",
             "docs/project-truss/METHODS.md",
             "docs/project-truss/README.md",
+            "docs/project-truss/SCIENTIFIC.md",
+            "scripts/lib/scientific_evidence.py",
             "scripts/lib/truss_policy.py",
             "scripts/lib/truss_github.py",
             "scripts/lib/project_truss_cli.py",

@@ -1,51 +1,41 @@
 ---
 name: resolve
-description: Use on an explicitly selected Ready standalone issue, leaf, or genuinely atomic set to claim it, invoke only triggered Matt disciplines, implement in the attached checkout, and publish the appropriate pull request before returning to Start.
+description: Use on a selected Ready standalone issue, leaf, or genuinely atomic set to claim it, execute its profile-specific engineering or scientific protocol, publish a pull request when needed, and return to Start.
 ---
 
 # Project Truss Resolve
 
-Apply `docs/project-truss/contract.yml`. Resolve is the Truss implementation stage: work from published tickets, invoke Matt TDD and other triggered disciplines directly, run focused checks continuously, run the full suite once at the end, perform two-axis review, and return to Start.
+Apply `docs/project-truss/contract.yml`. Default to one issue. A multi-issue resolution must be explicitly selected and truly atomic; independent issues retain separate owners, branches, worktrees, receipts, and pull requests.
 
-## Select and preflight
+## Attach and claim when the repository changes
 
-Default to the addressed standalone issue or leaf. Several issues require an explicit `issues` list; resolve independent issues separately with separate owners/PRs, and use a multi-issue set only when one atomic change truly needs it.
+For implementation or new tracked evidence, run Prepare from the clean canonical checkout. Create the task-attached feature branch/worktree from its exact `implementation_base`. Verify command cwd, task-visible checkout, branch, Git toplevel, and recorded worktree agree. Never proceed from a stale base or unattached hidden checkout.
 
-From the clean canonical checkout, run `"$PROJECT_TRUSS_ROOT/scripts/project-truss.sh" -Action Prepare -RepoRoot .`. Create the attached feature branch or hidden worktree from the exact returned `implementation_base`, never from an unsynchronized local branch. If native Codex worktree attachment is unavailable, keep the feature branch in the task-attached checkout rather than redirecting commands to an unattached worktree.
+Preflight every selected issue from live GitHub, assign one owner, record one identical resolution receipt, re-read the set with `-RequireRecorded true`, and stop on any partial mutation, competing claim/PR, malformed contract, or external blocker. GitHub/Git remain authoritative; the receipt is not a lifecycle database.
 
-After creation, verify that the task-visible checkout, command cwd, current branch, Git toplevel, and recorded worktree all identify the same feature checkout. Preserve the exact Prepare JSON as `PreparationJson`; `Claim` can infer the receipt from the attached checkout, current user, and issue when no JSON is supplied. Run:
+For a research-only scientific issue with no repository mutation, use sole assignment as the claim and skip the implementation receipt/worktree/branch/PR. This narrow path requires evidence already durable at the recorded Git revision; otherwise use the normal branch/PR path.
+
+## Execute the profile
+
+For application work, invoke Plan-triggered Matt techniques: TDD for approved durable behavior, diagnosis for demonstrated failures, research for source uncertainty, domain modeling for language/invariants, prototype for a design question, merge-conflict resolution when active, code review before handoff, and minimization/cleanup for structural changes.
+
+For scientific work:
+
+1. restate the claim and falsification condition;
+2. resolve sources, data provenance, units, conventions, assumptions, model/input revisions, and valid domain;
+3. name the oracle before implementation;
+4. run the smallest numerical experiment that can distinguish the claim;
+5. implement only what the experiment or durable interface requires;
+6. promote durable benchmark cases only when their scientific authority is explicit.
+
+A benchmark case records claim family, source locator, oracle class and independence rationale, inputs, comparison metric, justified `atol`/`rtol`, certificates, failure meaning, repository revision, exact command, and environment. Validate it with:
 
 ```bash
-"$PROJECT_TRUSS_ROOT/scripts/project-truss.sh" -Action Resolve -Repository OWNER/REPO -Issue ROOT_OR_LEAF \
-  -PreparationJson PREPARE_JSON -ResolutionJson RESOLUTION_JSON
+"$PROJECT_TRUSS_ROOT/scripts/project-truss.sh" -Action ValidateBenchmark -RepoRoot . -BenchmarkPath PATH
 ```
 
-Every selected issue must have an executable standalone or leaf contract, no competing owner or pull request, and no unresolved external blocker. Open blockers included in the selected set are internal atomic constraints. Any missing member, partial claim, conflicting receipt, stale base, or shared-field mismatch stops as `claim_conflict` or `state_contradiction`.
+Prefer analytical identities, independent values/implementations, limiting cases, derivative checks, residual certificates, metamorphic relations, manufactured solutions, convergence studies, literature reproductions, or experiments. A snapshot generated by the implementation is change detection, not an independent oracle. Do not write compatibility, prose, mock-only, coverage-only, or brittle exact-float tests to imitate scientific evidence. TDD applies only to an explicitly durable discrete software contract.
 
-Prepare fails closed when the canonical checkout is dirty, not on the discovered remote default branch, ahead, diverged, or unable to fast-forward. Do not reset, rebase, auto-stash, discard work, or substitute a guessed default branch or remote.
+Keep useful research notes and canonical domain language; keep exploratory lab artifacts nonpersistent unless intentionally promoted. A `FALSIFIED` result can complete the issue when the planned evidence is valid.
 
-## Claim one atomic set
-
-GitHub cannot mutate several issues transactionally, so use optimistic atomicity:
-
-1. preflight the complete set from live GitHub;
-2. capture one full implementation-base commit;
-3. assign the same single owner as the sole assignee on every member;
-4. record the identical canonical resolution receipt on every member;
-5. re-read the complete set with `-RequireRecorded true`;
-6. stop implementation if any write or verification is partial;
-7. create one hidden worktree, one branch, and one pull request for the set.
-
-For independent issues, repeat this flow per issue. Do not create a parent, shared receipt, or shared PR merely to make unrelated work look atomic.
-
-Retain per-leaf Ready, Claimed, In review, Blocked, and Done states. The receipt coordinates the set; it is not a second state store.
-
-## Execute through Matt methods
-
-Use Plan-inferred methods: TDD for stable behavior, diagnosing-bugs for demonstrated failures, research for primary-source uncertainty, domain-modeling for language and invariants, prototype for a throwaway design question, resolving-merge-conflicts for conflicts, code-review before handoff, and cleanup/minimization for high-risk or structural changes. Scientific-computing code also requires `scientific-coding-and-testing`. Missing capability is a governed blocker and a light-lane degradation.
-
-Keep canonical `CONTEXT.md`, ADRs, and useful research notes. Keep prototypes on throwaway branches with a linked verdict. Do not create local issue/spec/plan mirrors.
-
-If the issue records a GitHub Project projection, run the Project action with the linked pull-request URL and `ensure:true`; membership is advisory unless the projection says `required:true`. Project fields remain non-authoritative.
-
-After implementation, handoff, or pull-request creation, return to Start; none is terminal.
+Run focused checks continuously and the profile-selected full verification once. Preserve the Project projection when configured. Publish the pull request if implementation changed, then return to Start; implementation, handoff, and PR creation are not terminal.

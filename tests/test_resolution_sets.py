@@ -342,7 +342,7 @@ class ResolutionSetTests(unittest.TestCase):
 
     def test_resolution_launchers_assemble_git_provider_and_policy_boundaries(self):
         with tempfile.TemporaryDirectory() as directory:
-            project = Path(directory)
+            project = Path(directory) / "project"; project.mkdir()
             def git(*args):
                 return subprocess.run(["git", *args], cwd=project, text=True, check=True,
                                       capture_output=True).stdout.strip()
@@ -368,7 +368,7 @@ class ResolutionSetTests(unittest.TestCase):
                        "statusCheckRollup": [{"__typename": "CheckRun", "status": "COMPLETED",
                                              "conclusion": "SUCCESS"}]},
             }
-            fake_bin = project / "bin"
+            fake_bin = project.parent / "bin"
             fake_bin.mkdir()
             fake_gh = fake_bin / "gh"
             fake_gh.write_text(

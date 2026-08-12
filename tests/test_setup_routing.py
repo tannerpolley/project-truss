@@ -9,13 +9,13 @@ from unittest import mock
 
 from scripts.lib.command_support import Context
 from scripts.lib.commands.project import command_project_truss
-from scripts.lib.truss_setup import SetupError, SetupRequest, apply_setup, discover_context_files, validate_setup_target
+from scripts.lib.truss_setup import SetupError, SetupRequest, apply_setup, discover_context_files, discover_setup_request, validate_setup_target
 from scripts.lib.truss_policy import OutcomeSnapshot, derive_digest, parse_issue_contract
 
 ROOT = Path(__file__).resolve().parents[1]
 METHODS = ["grilling", "tdd", "diagnosing-bugs", "research", "domain-modeling", "prototype",
            "resolving-merge-conflicts", "code-review", "codebase-design", "cutthroat-code-cleanup",
-           "minimize-code-surface", "scientific-coding-and-testing", "wizard", "writing-for-agents"]
+           "minimize-code-surface", "wizard", "writing-for-agents"]
 
 class SetupRoutingTests(unittest.TestCase):
     def test_context_discovery_includes_root_map_and_nested_glossaries(self):
@@ -27,6 +27,25 @@ class SetupRoutingTests(unittest.TestCase):
             nested.mkdir()
             (nested / "CONTEXT.md").write_text("# Service\n", encoding="utf-8")
             self.assertEqual(("CONTEXT-MAP.md", "CONTEXT.md", "service/CONTEXT.md"), discover_context_files(root))
+
+    def test_start_reads_the_repository_profile_without_requiring_agent_guesswork(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "AGENTS.md").write_text("Repository Profile: scientific-computing\n", encoding="utf-8")
+            (root / "CONTEXT.md").write_text("# Terms\n", encoding="utf-8")
+            context = Context(ROOT / "scripts/project-truss.sh", ROOT, "", "", [], invocation_cwd=root)
+            request = json.dumps({
+                "context_reviewed": True,
+                "scientific_question": "Does the model recover the limit?",
+                "falsifiable_claims": ["Persistent deviation falsifies the claim."],
+                "scientific_evidence_plan": ["Compare with an analytical oracle."],
+            })
+            output = StringIO()
+            with redirect_stdout(output):
+                code = command_project_truss(context, {"Action": "start", "RequestJson": request})
+            payload = json.loads(output.getvalue())
+            self.assertEqual(0, code)
+            self.assertEqual("ready", payload["scientific"]["status"])
 
     def test_setup_is_idempotent_and_preserves_unrelated_instructions(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -44,6 +63,7 @@ class SetupRoutingTests(unittest.TestCase):
             request = json.dumps(
                 {
                     "repository": "owner/repo",
+                    "repository_profile": "general",
                     "instruction_file": "AGENTS.md",
                     "domain_layout": "single-context",
                     "triage_enabled": True,
@@ -105,7 +125,7 @@ class SetupRoutingTests(unittest.TestCase):
             self.assertNotIn("Wayfinder labels derive", tracker)
             apply_setup(
                 project,
-                SetupRequest("owner/repo", "AGENTS.md", "single-context", False, tuple(METHODS)),
+                SetupRequest("owner/repo", "general", "AGENTS.md", "single-context", False, tuple(METHODS)),
             )
             self.assertFalse((project / "docs/agents/triage-labels.md").exists())
             self.assertIn(
@@ -135,6 +155,42 @@ class SetupRoutingTests(unittest.TestCase):
                 ),
             )
 
+    def test_scientific_setup_discovers_repository_surfaces_without_inventing_layout(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "AGENTS.md").write_text(
+                "# Scientific repository\n\nRepository Profile: scientific-computing\n",
+                encoding="utf-8",
+            )
+            for path in ("validation/benchmarks", "docs/research", "data", "lab"):
+                (root / path).mkdir(parents=True)
+            (root / "tools").mkdir()
+            (root / "tools/check-affected.sh").write_text("#!/bin/sh\n", encoding="utf-8")
+            runner = mock.Mock(side_effect=[
+                subprocess.CompletedProcess([], 0, f"{root}\n", ""),
+                subprocess.CompletedProcess([], 0, "owner/science\n", ""),
+            ])
+            request = discover_setup_request(root, runner=runner)
+            self.assertEqual("scientific-computing", request.repository_profile)
+            result = apply_setup(root, request)
+            science = result["evidence"]["scientific_repository"]
+            self.assertEqual(["validation"], science["benchmark_roots"])
+            self.assertEqual(["docs/research", "lab"], science["research_roots"])
+            self.assertEqual(["data"], science["canonical_data_roots"])
+            self.assertEqual(["lab"], science["experimental_artifact_roots"])
+            self.assertEqual(["./tools/check-affected.sh"], science["validation_commands"])
+            guidance = (root / "docs/agents/scientific-computing.md").read_text(encoding="utf-8")
+            self.assertIn("executable scientific argument", guidance)
+            self.assertIn("`validation`", guidance)
+            self.assertIn("Experimental artifact roots", guidance)
+            self.assertIn("claim-specific atol/rtol", guidance)
+            self.assertFalse((root / ".scientific").exists())
+            configured = {**science, "benchmark_roots": ["custom/cases"], "tolerance_policy": "Published uncertainty budget."}
+            apply_setup(root, SetupRequest(request.repository, request.repository_profile, request.instruction_file,
+                                          request.domain_layout, request.triage_enabled, request.available_methods, configured))
+            guidance = (root / "docs/agents/scientific-computing.md").read_text(encoding="utf-8")
+            self.assertTrue(all(value in guidance for value in ("custom/cases", "Published uncertainty budget.")))
+
     def test_setup_defaults_to_a_read_only_preview(self):
         with tempfile.TemporaryDirectory() as directory:
             project = Path(directory)
@@ -142,7 +198,7 @@ class SetupRoutingTests(unittest.TestCase):
                 ROOT / "scripts/project-truss.sh", ROOT, "", "", [], invocation_cwd=project
             )
             setup = json.dumps({
-                "repository": "owner/repo", "instruction_file": "AGENTS.md",
+                "repository": "owner/repo", "repository_profile": "general", "instruction_file": "AGENTS.md",
                 "domain_layout": "single-context", "triage_enabled": False,
                 "available_methods": [],
             })
@@ -166,7 +222,7 @@ class SetupRoutingTests(unittest.TestCase):
             root.mkdir()
             outside.mkdir()
             (root / "docs").symlink_to(outside, target_is_directory=True)
-            request = SetupRequest("owner/repo", "AGENTS.md", "single-context", False, ())
+            request = SetupRequest("owner/repo", "general", "AGENTS.md", "single-context", False, ())
             with self.assertRaisesRegex(SetupError, "state_contradiction"):
                 apply_setup(root, request)
             (root / "docs").unlink()
@@ -186,7 +242,7 @@ class SetupRoutingTests(unittest.TestCase):
             root = Path(directory)
             agents = root / "AGENTS.md"
             agents.write_text("Keep me.\n", encoding="utf-8")
-            request = SetupRequest("owner/repo", "AGENTS.md", "single-context", False, ())
+            request = SetupRequest("owner/repo", "general", "AGENTS.md", "single-context", False, ())
             real_replace, calls = __import__("os").replace, 0
 
             def fail_second(source, target):
@@ -203,7 +259,7 @@ class SetupRoutingTests(unittest.TestCase):
             self.assertFalse((root / "docs/agents/issue-tracker.md").exists())
 
     def test_setup_rejects_invalid_external_values(self):
-        base = {"repository": "owner/repo", "instruction_file": "AGENTS.md",
+        base = {"repository": "owner/repo", "repository_profile": "general", "instruction_file": "AGENTS.md",
                 "domain_layout": "single-context", "triage_enabled": True, "available_methods": []}
         with self.assertRaises(ValueError):
             SetupRequest.from_mapping({**base, "repository": 1})

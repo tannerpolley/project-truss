@@ -1,7 +1,0 @@
-{
-  "scenario": "governed-single",
-  "expected_outcome": "pass",
-  "layers": ["leaf", "pull_request"],
-  "required_blockers": ["external_state_unavailable"],
-  "minimum_source_urls": 1
-}

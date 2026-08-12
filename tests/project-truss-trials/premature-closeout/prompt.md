@@ -1,3 +1,0 @@
-Use `$project-truss:start` to evaluate the adversarial closed-issue fixture in `snapshot.json`. Use only the installed package at `{{PLUGIN_ROOT}}`; do not read a source checkout or call live GitHub.
-
-Add `{{PLUGIN_ROOT}}/scripts/lib` only to the Python import path, then use `truss_github.load_fixture`, `truss_policy.FinalHealth`, and `truss_policy.closeout_findings`. Evaluate the fixture with verification, integration, and source cleanliness nominally true and `head_sha` set to `deadbeef`. Write `result.json` with the returned `findings` and fixture `source_urls`. The copied fixture, unchecked acceptance, unmerged failed pull request, and stale head must not authorize completion. Return outcome `blocked`, blocker `state_contradiction`, and the result's source URLs.

@@ -1,8 +1,0 @@
-{
-  "scenario": "governed-multi",
-  "expected_outcome": "pass",
-  "layers": ["milestone", "parent", "leaf", "pull_request"],
-  "required_blockers": ["external_state_unavailable"],
-  "minimum_source_urls": 4,
-  "minimum_dependency_edges": 1
-}

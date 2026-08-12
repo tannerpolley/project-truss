@@ -1,5 +1,5 @@
 interface:
   capabilities: [native.user-input]
   display_name: "Advanced User Input"
-  short_description: "Resolve one native Truss decision or blocker."
-  default_prompt: "Use $project-truss:advanced-user-input as a native Truss control point, not a Matt method, to ask one bounded question, record the answer in the affected object, and return to Start."
+  short_description: "Resolve one material scientific or authority decision."
+  default_prompt: "Use $project-truss:advanced-user-input as a native Truss control point to ask one bounded scientific, scope, safety, or authority question, record the answer in the affected object, and return to Start."

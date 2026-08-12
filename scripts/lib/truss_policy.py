@@ -9,13 +9,18 @@ from typing import Any, ClassVar, Mapping
 
 import yaml
 
+try:
+    from .scientific_evidence import ScientificValidation, issue_body_sha256, parse_scientific_receipt
+except ImportError:
+    from scientific_evidence import ScientificValidation, issue_body_sha256, parse_scientific_receipt
+
 
 SKILLS = ("setup", "start", "shape", "resolve", "close", "advanced-user-input")
 PUBLIC_SKILLS = SKILLS
 INVOCABLE_METHODS = (
     "grilling", "tdd", "diagnosing-bugs", "research", "domain-modeling", "prototype",
     "resolving-merge-conflicts", "code-review", "codebase-design", "cutthroat-code-cleanup",
-    "minimize-code-surface", "scientific-coding-and-testing", "wizard", "writing-for-agents",
+    "minimize-code-surface", "wizard", "writing-for-agents",
 )
 ROUTED_METHODS = INVOCABLE_METHODS
 HARD_TRIGGERS = ("release_or_milestone", "multiple_independent_units",
@@ -28,17 +33,37 @@ ROOT_ISSUE_SECTIONS = (
 )
 LEAF_ISSUE_SECTIONS = ("Parent", "What to build", "Acceptance criteria", "Blocked by")
 STANDALONE_ISSUE_SECTIONS = ("What to build", "Acceptance criteria", "Blocked by")
+SCIENTIFIC_ROOT_ISSUE_SECTIONS = (
+    "Scientific Question", "Falsifiable Claims", "Evidence and Sources",
+    "Mathematical or Numerical Formulation", "Benchmark and Validation Plan",
+    "Acceptance and Falsification Criteria", "Out of Scope", "Further Notes",
+)
+SCIENTIFIC_LEAF_ISSUE_SECTIONS = (
+    "Parent", "Claim to Establish", "Inputs and Sources", "Experiment or Implementation",
+    "Acceptance and Falsification Criteria", "Required Evidence", "Blocked by",
+)
+SCIENTIFIC_STANDALONE_ISSUE_SECTIONS = SCIENTIFIC_LEAF_ISSUE_SECTIONS[1:]
+ISSUE_PROFILES = {
+    "application-development": {
+        "root": ROOT_ISSUE_SECTIONS, "leaf": LEAF_ISSUE_SECTIONS,
+        "standalone": STANDALONE_ISSUE_SECTIONS,
+    },
+    "scientific-computing": {
+        "root": SCIENTIFIC_ROOT_ISSUE_SECTIONS, "leaf": SCIENTIFIC_LEAF_ISSUE_SECTIONS,
+        "standalone": SCIENTIFIC_STANDALONE_ISSUE_SECTIONS,
+    },
+}
 ADVISORY_LABELS = {"ready_for_agent": "agent-shaped"}
 RECEIPTS = ("claim", "blocker_or_decision", "handoff", "verified_closeout")
 BLOCKERS = (
     "authority_required", "decision_required", "github_capability_missing", "github_scope_exceeded", "method_capability_missing",
     "contract_incomplete", "dependency_blocked", "claim_conflict", "claim_partial", "verification_failed",
     "integration_unhealthy", "state_contradiction", "external_state_unavailable", "context_required",
-    "vocabulary_required",
+    "vocabulary_required", "scientific_claim_required", "scientific_evidence_required",
+    "scientific_evidence_missing", "scientific_evidence_invalid", "scientific_review_failed",
 )
 _CONTRACT_KEYS = {
-    "version", "public_skills", "skills", "hard_triggers", "root_issue_sections", "leaf_issue_sections",
-    "standalone_issue_sections",
+    "version", "public_skills", "skills", "hard_triggers", "issue_profiles",
     "advisory_labels", "receipts", "blockers",
 }
 _SECTION_ALIASES = {
@@ -50,6 +75,16 @@ _SECTION_ALIASES = {
         ("testing decisions", ("testing", "testing decisions")),
         ("further notes", ("notes", "further notes")),
         ("what to build", ("scope", "requirements", "build", "what to build")),
+        ("scientific question", ("scientific question", "research question")),
+        ("falsifiable claims", ("falsifiable claims", "claims")),
+        ("evidence and sources", ("evidence and sources", "sources and evidence")),
+        ("mathematical or numerical formulation", ("mathematical or numerical formulation", "formulation")),
+        ("benchmark and validation plan", ("benchmark and validation plan", "validation plan")),
+        ("acceptance and falsification criteria", ("acceptance and falsification criteria", "falsification criteria")),
+        ("claim to establish", ("claim to establish", "scientific claim")),
+        ("inputs and sources", ("inputs and sources", "scientific inputs")),
+        ("experiment or implementation", ("experiment or implementation", "experiment")),
+        ("required evidence", ("required evidence", "evidence required")),
         ("blocked by", ("dependencies", "blocked", "blocked by")),
     )
     for alias in aliases
@@ -121,6 +156,13 @@ class WorkRequest:
     manual_procedure: bool = False
     agent_document_change: bool = False
     design_change: bool = False
+    primary_source_uncertainty: bool = False
+    formulation_change: bool = False
+    numerical_design_uncertain: bool = False
+    durable_software_contract: bool = False
+    scientific_question: str = ""
+    falsifiable_claims: tuple[str, ...] = ()
+    scientific_evidence_plan: tuple[str, ...] = ()
     @classmethod
     def from_mapping(cls, data: Mapping[str, Any]) -> "WorkRequest":
         values = _strict_mapping(data, set(cls.__dataclass_fields__), "work request")
@@ -130,6 +172,8 @@ class WorkRequest:
             "new_outcome", "material_rescope", "code_change", "stable_behavior_change",
             "scope_complete", "start_entry", "context_reviewed", "vocabulary_confirmed",
             "manual_procedure", "agent_document_change", "design_change",
+            "primary_source_uncertainty", "formulation_change", "numerical_design_uncertain",
+            "durable_software_contract",
         ):
             if name in values:
                 values[name] = _bool(values, name)
@@ -138,7 +182,10 @@ class WorkRequest:
         for name in ("independent_units", "delegated_owners"):
             if name in values:
                 values[name] = _positive_int(values, name)
-        for name in ("required_methods", "available_methods", "grilling_decisions", "context_files", "context_terms"):
+        for name in (
+            "required_methods", "available_methods", "grilling_decisions", "context_files", "context_terms",
+            "falsifiable_claims", "scientific_evidence_plan",
+        ):
             if name in values:
                 values[name] = _strings(values, name)
         profile = values.get("repository_profile", "general")
@@ -158,6 +205,10 @@ class WorkRequest:
             raise ValueError("shared_understanding_confirmation must be non-empty")
         if confirmation:
             values["shared_understanding_confirmation"] = confirmation.strip()
+        question = values.get("scientific_question", "")
+        if not isinstance(question, str):
+            raise ValueError("scientific_question must be a string")
+        values["scientific_question"] = question.strip()
         return cls(**values)
 
 
@@ -172,6 +223,7 @@ class TrussPlan:
     context_status: str = "not_required"
     context_files: tuple[str, ...] = ()
     context_terms: tuple[str, ...] = ()
+    scientific_protocol: Mapping[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         next_action = (
@@ -187,6 +239,7 @@ class TrussPlan:
                 "files": list(self.context_files),
                 "terms": list(self.context_terms),
             },
+            "scientific": dict(self.scientific_protocol or {"status": "not_required"}),
             "next_action": next_action,
             "continuation": {
                 "status": "blocked" if self.blockers else "continue",
@@ -201,6 +254,7 @@ class TrussPlan:
                         "files": list(self.context_files),
                         "terms": list(self.context_terms),
                     },
+                    "scientific": dict(self.scientific_protocol or {"status": "not_required"}),
                 },
                 "safe_retry_count": 0,
             },
@@ -233,7 +287,39 @@ def _context_status(request: WorkRequest) -> str:
     return "reviewed" if request.context_reviewed else "review_required"
 
 
+_SCIENTIFIC_PHASES = (
+    "scientific_question", "falsifiable_claims", "sources_and_data", "formulation",
+    "experiment_or_benchmark", "implementation_when_needed", "scientific_review", "github_closeout",
+)
+
+
+def _scientific_requirements(request: WorkRequest) -> tuple[dict[str, Any], bool, bool]:
+    if request.repository_profile != "scientific-computing":
+        return {"status": "not_required"}, False, False
+    required = request.start_entry and not request.merge_or_publication
+    claim_required = required and (not request.scientific_question or not request.falsifiable_claims)
+    evidence_required = required and not claim_required and not request.scientific_evidence_plan
+    status = "claim_required" if claim_required else "evidence_plan_required" if evidence_required else "ready"
+    next_question = (
+        "What scientific question and falsifiable claim should this outcome test?"
+        if claim_required else
+        "What source, oracle, experiment, and tolerance basis could verify or falsify the claim?"
+        if evidence_required else ""
+    )
+    return {
+        "status": status,
+        "phases": list(_SCIENTIFIC_PHASES),
+        "question": request.scientific_question,
+        "claims": list(request.falsifiable_claims),
+        "evidence_plan": list(request.scientific_evidence_plan),
+        "tdd_policy": "explicit_durable_software_contract_only",
+        "native_evidence_protocol": True,
+        "next_question": next_question,
+    }, claim_required, evidence_required
+
+
 def plan_work(request: WorkRequest) -> TrussPlan:
+    scientific, scientific_claim_required, scientific_evidence_required = _scientific_requirements(request)
     full_governance = any((
         request.release_or_milestone, request.independent_units > 1,
         request.delegated_owners > 1, request.exceeds_safe_context,
@@ -249,15 +335,18 @@ def plan_work(request: WorkRequest) -> TrussPlan:
         )
         blockers = tuple(code for condition, code in (
             (context_required, "context_required"),
+            (scientific_claim_required, "scientific_claim_required"),
+            (scientific_evidence_required, "scientific_evidence_required"),
             (request.material_decision_missing, "decision_required"),
         ) if condition)
         return TrussPlan(
             "direct", (), bool(blockers), blockers,
-            next_skill="start" if context_required else "advanced-user-input" if blockers else None,
+            next_skill="start" if context_required or scientific_claim_required or scientific_evidence_required else "advanced-user-input" if blockers else None,
             method_routes=_route_methods(set(), (), False),
             context_status=_context_status(request),
             context_files=request.context_files,
             context_terms=request.context_terms,
+            scientific_protocol=scientific,
         )
     if lane == "light":
         layers = ["issue", "pull_request"]
@@ -275,8 +364,11 @@ def plan_work(request: WorkRequest) -> TrussPlan:
             context_status=_context_status(request),
             context_files=request.context_files,
             context_terms=request.context_terms,
+            scientific_protocol=scientific,
         )
     required = set(request.required_methods)
+    if request.repository_profile == "scientific-computing" and not request.durable_software_contract:
+        required.discard("tdd")
     if lane == "governed" and (request.new_outcome or request.material_rescope):
         required.update(("grilling", "domain-modeling"))
     if request.code_change:
@@ -284,10 +376,17 @@ def plan_work(request: WorkRequest) -> TrussPlan:
             required.add("code-review")
         if request.change_risk in {"high", "structural"}:
             required.update(("cutthroat-code-cleanup", "minimize-code-surface"))
-    if request.stable_behavior_change and request.change_risk != "low":
+    if request.stable_behavior_change and request.change_risk != "low" and (
+        request.repository_profile != "scientific-computing" or request.durable_software_contract
+    ):
         required.add("tdd")
-    if request.code_change and request.repository_profile == "scientific-computing":
-        required.add("scientific-coding-and-testing")
+    if request.repository_profile == "scientific-computing":
+        if request.primary_source_uncertainty:
+            required.add("research")
+        if request.formulation_change:
+            required.add("domain-modeling")
+        if request.numerical_design_uncertain:
+            required.add("prototype")
     if request.failed_gate:
         required.add("diagnosing-bugs")
     if request.manual_procedure:
@@ -304,11 +403,13 @@ def plan_work(request: WorkRequest) -> TrussPlan:
     vocabulary_required = lane == "governed" and (request.new_outcome or request.material_rescope) and not context_required and not request.vocabulary_confirmed
     grilling_due = lane == "governed" and (request.new_outcome or request.material_rescope) and not request.scope_complete and (
         not request.grilling_decisions or not request.shared_understanding_confirmation
-    ) and not context_required and not vocabulary_required
+    ) and not context_required and not vocabulary_required and not scientific_claim_required and not scientific_evidence_required
     blockers = tuple(
         code for condition, code in (
             (context_required, "context_required"),
             (vocabulary_required, "vocabulary_required"),
+            (scientific_claim_required, "scientific_claim_required"),
+            (scientific_evidence_required, "scientific_evidence_required"),
             (lane == "governed" and "missing" in routes.values(), "method_capability_missing"),
             (grilling_due, "decision_required"),
         ) if condition
@@ -317,7 +418,7 @@ def plan_work(request: WorkRequest) -> TrussPlan:
         None
         if "method_capability_missing" in blockers
         else "start"
-        if context_required or vocabulary_required or wayfinding or grilling_due
+        if context_required or vocabulary_required or scientific_claim_required or scientific_evidence_required or wayfinding or grilling_due
         else "advanced-user-input"
         if request.material_decision_missing
         else "shape"
@@ -326,8 +427,8 @@ def plan_work(request: WorkRequest) -> TrussPlan:
     )
     context_status = "vocabulary_required" if vocabulary_required else _context_status(request)
     return TrussPlan(
-        lane, tuple(layers), request.material_decision_missing or context_required or vocabulary_required or grilling_due,
-        blockers, next_skill, routes, context_status, request.context_files, request.context_terms,
+        lane, tuple(layers), request.material_decision_missing or context_required or vocabulary_required or scientific_claim_required or scientific_evidence_required or grilling_due,
+        blockers, next_skill, routes, context_status, request.context_files, request.context_terms, scientific,
     )
 
 
@@ -440,7 +541,8 @@ class FinalHealth:
     def from_mapping(cls, data: Mapping[str, Any]) -> "FinalHealth":
         values = _strict_mapping(data, set(cls.__dataclass_fields__), "final health")
         return cls(_bool(values, "verification_passed"), _bool(values, "integration_healthy"),
-                   _bool(values, "source_clean"), str(values.get("head_sha") or ""), _bool(values, "review_passed"))
+                   _bool(values, "source_clean"), str(values.get("head_sha") or ""),
+                   _bool(values, "review_passed"))
 
 
 @dataclass(frozen=True)
@@ -649,11 +751,21 @@ def close_resolution_findings(
     snapshots: list[OutcomeSnapshot] | tuple[OutcomeSnapshot, ...],
     receipt: ResolutionReceipt,
     health: FinalHealth,
+    scientific_evidence: Mapping[int, ScientificValidation] | None = None,
 ) -> tuple[str, ...]:
     findings: list[str] = []
     observed = {snapshot.issue.number: snapshot for snapshot in snapshots}
+    contracts = {
+        number: parse_issue_contract(snapshot.issue.body)
+        for number, snapshot in observed.items()
+    }
+    evidence = scientific_evidence or {}
+    no_pr_resolution = bool(contracts) and all(
+        _scientific_no_pr_complete(contract, evidence.get(number))
+        for number, contract in contracts.items()
+    )
     if (
-        receipt.pull_request is None
+        receipt.pull_request is None and not no_pr_resolution
         or set(observed) != set(receipt.issues)
         or len(observed) != len(snapshots)
     ):
@@ -662,15 +774,18 @@ def close_resolution_findings(
         snapshot = observed.get(number)
         if snapshot is None:
             continue
-        contract = parse_issue_contract(snapshot.issue.body)
+        contract = contracts[number]
         if not snapshot.authoritative:
             findings.append("external_state_unavailable")
         if contract.kind not in {"leaf", "standalone"} or not contract.ok:
             findings.append("contract_incomplete")
+        findings.extend(_scientific_closeout_findings(
+            snapshot, contract, health, evidence.get(number)
+        ))
         if (
             not contract.acceptance_complete
             or not health.verification_passed
-            or not health.review_passed
+            or receipt.pull_request is not None and not health.review_passed
         ):
             findings.append("verification_failed")
         if snapshot.issue.state != "CLOSED":
@@ -704,6 +819,7 @@ class ContractResult:
     acceptance_total: int
     acceptance_complete: bool
     sections: Mapping[str, str]
+    profile: str = "unknown"
 
 
 def load_contract(path: Path) -> dict[str, Any]:
@@ -716,15 +832,16 @@ def load_contract(path: Path) -> dict[str, Any]:
     missing = sorted(_CONTRACT_KEYS - set(data))
     if missing:
         raise ValueError("missing contract key(s): " + ", ".join(missing))
-    if type(data["version"]) is not int or data["version"] != 2:
-        raise ValueError("contract version must be 2")
+    if type(data["version"]) is not int or data["version"] != 3:
+        raise ValueError("contract version must be 3")
     expected = {
         "public_skills": list(PUBLIC_SKILLS),
         "skills": list(SKILLS),
         "hard_triggers": list(HARD_TRIGGERS),
-        "root_issue_sections": list(ROOT_ISSUE_SECTIONS),
-        "leaf_issue_sections": list(LEAF_ISSUE_SECTIONS),
-        "standalone_issue_sections": list(STANDALONE_ISSUE_SECTIONS),
+        "issue_profiles": {
+            profile: {kind: list(sections) for kind, sections in contracts.items()}
+            for profile, contracts in ISSUE_PROFILES.items()
+        },
         "advisory_labels": ADVISORY_LABELS,
         "receipts": list(RECEIPTS),
         "blockers": list(BLOCKERS),
@@ -755,41 +872,126 @@ def _sections(body: str) -> dict[str, str]:
 
 def parse_issue_contract(body: str) -> ContractResult:
     if is_wayfinder_issue(body):
-        return ContractResult("wayfinder", False, ("execution issue contract",), 0, False, {})
+        return ContractResult("wayfinder", False, ("execution issue contract",), 0, False, {}, "unknown")
     if re.search(r"(?im)^\s*#{1,6}\s+(?:question|destination|decisions so far|not yet specified)\s*$", body):
-        return ContractResult("mixed", False, ("wayfinder and execution contract",), 0, False, {})
+        return ContractResult("mixed", False, ("wayfinder and execution contract",), 0, False, {}, "unknown")
     found = _sections(body)
-    root_present = any(name.casefold() in found for name in ROOT_ISSUE_SECTIONS if name != "Further Notes")
-    standalone_present = any(name.casefold() in found for name in STANDALONE_ISSUE_SECTIONS)
     parent_present = "parent" in found
-    if root_present and standalone_present:
-        return ContractResult("mixed", False, ("mixed issue contract",), 0, False, {})
-    if not root_present and not standalone_present:
-        return ContractResult("unknown", False, ("root or standalone issue contract",), 0, False, {})
-    kind = "root" if root_present else "leaf" if parent_present else "standalone"
-    expected = ROOT_ISSUE_SECTIONS if kind == "root" else LEAF_ISSUE_SECTIONS if kind == "leaf" else STANDALONE_ISSUE_SECTIONS
+    candidates: list[tuple[str, str]] = []
+    shared = {"parent", "blocked by", "out of scope", "further notes"}
+    for profile, contracts in ISSUE_PROFILES.items():
+        root_names = {name.casefold() for name in contracts["root"]}
+        execution_names = {name.casefold() for name in contracts["standalone"]}
+        root_signals = root_names - execution_names - shared
+        execution_signals = execution_names - root_names - shared
+        if root_signals & found.keys():
+            candidates.append((profile, "root"))
+        if execution_signals & found.keys():
+            candidates.append((profile, "leaf" if parent_present else "standalone"))
+    if len(candidates) != 1:
+        reason = "root or standalone issue contract" if not candidates else "mixed issue contract"
+        return ContractResult("unknown" if not candidates else "mixed", False, (reason,), 0, False, {}, "unknown")
+    profile, kind = candidates[0]
+    expected = ISSUE_PROFILES[profile][kind]
     values = {name: found.get(name.casefold(), "") for name in expected}
     missing = [name for name, value in values.items() if not value]
     if kind == "root":
-        stories = re.findall(r"(?m)^\s*\d+\.\s+\S", values["User Stories"])
-        if not stories and "User Stories" not in missing:
-            missing.append("User Stories")
-        acceptance_total = len(stories)
-        complete = not missing
+        claim_section = "User Stories" if profile == "application-development" else "Falsifiable Claims"
+        pattern = r"(?m)^\s*\d+\.\s+\S" if profile == "application-development" else r"(?m)^\s*(?:[-*]|\d+\.)\s+\S"
+        claims = re.findall(pattern, values[claim_section])
+        if not claims and claim_section not in missing:
+            missing.append(claim_section)
+        if profile == "scientific-computing":
+            boxes = re.findall(r"(?im)^\s*[-*]\s*\[([ xX])\]\s+\S", values["Acceptance and Falsification Criteria"])
+            if not boxes and "Acceptance and Falsification Criteria" not in missing:
+                missing.append("Acceptance and Falsification Criteria")
+            acceptance_total = len(boxes)
+            complete = not missing and all(value.lower() == "x" for value in boxes)
+        else:
+            acceptance_total = len(claims)
+            complete = not missing
     else:
         if kind == "leaf":
             parent = values["Parent"]
             reference = r"(?:#[1-9]\d*|https://\S+/issues/[1-9]\d*)"
             if parent and re.search(reference, parent) is None:
                 missing.append("Parent")
-            blocked_by = values["Blocked by"]
-            if blocked_by and not blocked_by.casefold().startswith("none") and re.search(reference, blocked_by) is None:
-                missing.append("Blocked by")
-        boxes = re.findall(r"(?im)^\s*[-*]\s*\[([ xX])\]\s+\S", values["Acceptance criteria"])
-        if not boxes and "Acceptance criteria" not in missing:
-            missing.append("Acceptance criteria")
+        else:
+            reference = r"(?:#[1-9]\d*|https://\S+/issues/[1-9]\d*)"
+        blocked_by = values["Blocked by"]
+        if blocked_by and not blocked_by.casefold().startswith("none") and re.search(reference, blocked_by) is None:
+            missing.append("Blocked by")
+        acceptance = "Acceptance criteria" if profile == "application-development" else "Acceptance and Falsification Criteria"
+        boxes = re.findall(r"(?im)^\s*[-*]\s*\[([ xX])\]\s+\S", values[acceptance])
+        if not boxes and acceptance not in missing:
+            missing.append(acceptance)
         acceptance_total, complete = len(boxes), bool(boxes) and all(value.lower() == "x" for value in boxes)
-    return ContractResult(kind, not missing, tuple(missing), acceptance_total, complete, values)
+    return ContractResult(kind, not missing, tuple(dict.fromkeys(missing)), acceptance_total, complete, values, profile)
+
+
+def _scientific_closeout_findings(
+    snapshot: OutcomeSnapshot, contract: ContractResult,
+    health: FinalHealth,
+    validation: ScientificValidation | None,
+) -> list[str]:
+    if contract.profile != "scientific-computing" or contract.kind == "root":
+        return []
+    findings = []
+    if validation is None:
+        findings.append("scientific_evidence_missing")
+    elif not validation.ok:
+        findings.append("scientific_evidence_invalid")
+    elif not _has_scientific_receipt(snapshot, validation):
+        findings.append("scientific_evidence_missing")
+    if validation and validation.ok and validation.evidence.get("scientific_review", {}).get("verdict") != "passed":
+        findings.append("scientific_review_failed")
+    return findings
+
+
+def _has_scientific_receipt(
+    snapshot: OutcomeSnapshot, validation: ScientificValidation | None = None,
+) -> bool:
+    expected = validation.evidence if validation else None
+    candidates: list[Mapping[str, Any] | None] = []
+    for comment in snapshot.comments:
+        try:
+            receipt = parse_scientific_receipt(comment.body)
+        except (TypeError, ValueError, json.JSONDecodeError):
+            if "Project Truss scientific evidence receipt:" in comment.body:
+                candidates.append(None)
+            continue
+        if receipt is None:
+            continue
+        candidates.append(receipt if (
+            comment.author in snapshot.assignees
+            and receipt["scientific_review"]["reviewer"] == comment.author
+            and receipt["issue_body_sha256"] == issue_body_sha256(snapshot.issue.body)
+        ) and receipt["github_issue"] == snapshot.issue.number and not (snapshot.closing_prs and (
+                len(snapshot.closing_prs) != 1
+                or receipt["evidence_revision"] != snapshot.closing_prs[0].head_sha
+            )) else None)
+    receipt = candidates[-1] if candidates else None
+    return bool(
+        receipt
+        and receipt["scientific_review"]["verdict"] == "passed"
+        and (expected is None or all(receipt[name] == expected[name] for name in (
+            "github_issue", "claim_id", "classification", "repository_revision",
+            "issue_body_sha256", "evidence_revision", "scientific_review",
+            "packet_sha256", "dimensions", "packet_path",
+        )))
+    )
+
+
+def _scientific_no_pr_complete(
+    contract: ContractResult, validation: ScientificValidation | None,
+) -> bool:
+    return bool(
+        contract.profile == "scientific-computing"
+        and validation
+        and validation.ok
+        and validation.evidence.get("dimensions", {}).get("implementation_promotion")
+        in {"experimental_only", "not_applicable"}
+    )
 
 
 def _ordered(findings: list[str]) -> tuple[str, ...]:
@@ -817,12 +1019,19 @@ def _pr_verified(pr: PullRequest) -> bool:
     return pr.merged and pr.state == "MERGED" and review_clear
 
 
-def closeout_findings(snapshot: OutcomeSnapshot, health: FinalHealth) -> tuple[str, ...]:
+def closeout_findings(
+    snapshot: OutcomeSnapshot,
+    health: FinalHealth,
+    scientific_evidence: ScientificValidation | None = None,
+) -> tuple[str, ...]:
     findings = [value for value in snapshot.provider_findings if value in BLOCKERS]
     contract = parse_issue_contract(snapshot.issue.body)
     rollup = bool(snapshot.children)
+    no_pr_science = not rollup and not snapshot.closing_prs and _scientific_no_pr_complete(contract, scientific_evidence)
     if not contract.ok:
         findings.append("contract_incomplete")
+    if not rollup:
+        findings.extend(_scientific_closeout_findings(snapshot, contract, health, scientific_evidence))
     if _open(snapshot.blocked_by):
         findings.append("dependency_blocked")
     if (not rollup and not _has_valid_claim(snapshot)) or (rollup and len(snapshot.assignees) > 1):
@@ -831,10 +1040,10 @@ def closeout_findings(snapshot: OutcomeSnapshot, health: FinalHealth) -> tuple[s
     if (
         not contract.acceptance_complete
         or not health.verification_passed
-        or not rollup and not health.review_passed
+        or not rollup and not no_pr_science and not health.review_passed
     ):
         findings.append("verification_failed")
-    if not rollup and (len(prs) != 1 or (prs and not _pr_verified(prs[0]))):
+    if not rollup and not no_pr_science and (len(prs) != 1 or (prs and not _pr_verified(prs[0]))):
         findings.append("verification_failed")
     terminal_children = {"Done", "Cancelled", "Deferred"}
     incomplete_child = any(child.state != "CLOSED" or child.lifecycle_state not in terminal_children for child in snapshot.children)
@@ -849,7 +1058,7 @@ def closeout_findings(snapshot: OutcomeSnapshot, health: FinalHealth) -> tuple[s
         findings.append("state_contradiction")
     elif not health.source_clean:
         findings.append("state_contradiction")
-    elif not rollup and (len(prs) != 1 or not prs[0].merged or not health.head_sha or prs[0].head_sha != health.head_sha):
+    elif not rollup and not no_pr_science and (len(prs) != 1 or not prs[0].merged or not health.head_sha or prs[0].head_sha != health.head_sha):
         findings.append("state_contradiction")
     if not snapshot.authoritative:
         findings.append("external_state_unavailable")
@@ -885,10 +1094,21 @@ def derive_state(snapshot: OutcomeSnapshot) -> str:
             )
             return "Done" if snapshot.authoritative and contract.acceptance_complete and complete else "Blocked"
         if (
+            contract.profile == "scientific-computing"
+            and contract.acceptance_complete
+            and not snapshot.closing_prs
+            and _has_scientific_receipt(snapshot)
+        ):
+            return "Done"
+        if (
             snapshot.authoritative
             and contract.acceptance_complete
             and len(snapshot.closing_prs) == 1
             and _pr_verified(snapshot.closing_prs[0])
+            and (
+                contract.profile != "scientific-computing"
+                or _has_scientific_receipt(snapshot)
+            )
             and not _open(snapshot.children)
         ):
             return "Done"
@@ -920,7 +1140,11 @@ class OutcomeDigest:
 def derive_digest(snapshot: OutcomeSnapshot) -> OutcomeDigest:
     state = derive_state(snapshot)
     contract = parse_issue_contract(snapshot.issue.body)
-    outcome_section = "Solution" if contract.kind == "root" else "What to build"
+    outcome_section = (
+        "Scientific Question" if contract.profile == "scientific-computing" and contract.kind == "root"
+        else "Claim to Establish" if contract.profile == "scientific-computing"
+        else "Solution" if contract.kind == "root" else "What to build"
+    )
     outcome = next(
         (line.strip() for line in contract.sections.get(outcome_section, "").splitlines() if line.strip()),
         snapshot.issue.title,

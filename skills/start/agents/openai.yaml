@@ -1,5 +1,5 @@
 interface:
   capabilities: [filesystem.read, shell, github, native.user-input]
   display_name: "Start"
-  short_description: "Read context, grill, route, and finish Matt-first work."
-  default_prompt: "Use $project-truss:start to begin or resume Matt-first work, read shared context and vocabulary, invoke relevant disciplines, and continue through verified closeout or a named blocker."
+  short_description: "Establish the claim, route the profile, and finish."
+  default_prompt: "Use $project-truss:start to begin or resume profile-aware work, establish shared vocabulary and the scientific or application claim, invoke relevant Matt techniques, and continue through truthful closeout or a named blocker."

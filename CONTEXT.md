@@ -1,52 +1,37 @@
 # Project Truss domain context
 
-Project Truss coordinates durable coding outcomes without replacing engineering technique or native provider truth.
-
-This file is the repository's shared glossary and conceptual language. Procedures live in skills and runtime documentation; lifecycle state remains in GitHub, Git, reviews, integration, and current worktrees.
+Project Truss is a profile-aware, GitHub-native harness around Matt Pocock techniques. It coordinates durable outcomes without replacing repository truth or creating a lifecycle database.
 
 ## Language
 
-- **Context pass:** Start's read-and-confirm step that identifies the relevant context files and canonical terms before shaping or implementation.
-- **Shared vocabulary:** The project-specific terms that must have one clear meaning across issues, code, reviews, and agents.
-- **Vocabulary confirmation:** An explicit acknowledgement that the relevant terms are present, clear, and non-conflicting; it is not a substitute for scope completion.
-- **Human-only procedure:** A provisioning, secret, unfamiliar-dashboard, migration, or cutover step that an agent cannot safely perform; it routes to Matt's `wizard`.
-
-- **Direct work:** work that can safely complete without durable Truss coordination.
-- **Light work:** one issue/PR with native GitHub evidence but without a parent, resolution set, milestone, or full governed ceremony.
-- **Governed work:** work requiring coordinated issue structure, multiple units, delegation, release tracking, high-risk review, or explicit governance.
-- **Standalone issue:** a self-contained execution issue with scope, acceptance criteria, and dependency semantics; it does not require a parent.
-- **Standalone pull request:** an existing PR with no matching canonical Project Truss resolution receipt (the claim record); it remains direct through review, merge, and cleanup.
-- **Matt-first entrypoint:** `start`, the normal beginning or resumption point that directly invokes relevant Matt disciplines and routes native Truss stages.
-- **Continuation loop:** Start's repeated observation and routing from authoritative state until direct completion, intentional handoff, a named blocker, or verified closeout.
-- **Grilling path:** Start's direct use of model-invocable `grilling` and `domain-modeling` for new outcomes and material rescope.
-- **Method mode:** one of `invocable`, `missing`, or `not_triggered`, describing how current evidence routes a Matt method.
-- **Decision map:** a native Truss Wayfinder artifact used before Shape; it supplies context but is not an execution contract or lifecycle source.
-- **Governed outcome:** one result requiring publication, multiple units, delegation, a milestone, high risk, or cross-session continuity.
-- **Root:** the Matt-shaped problem and solution specification for a governed outcome.
-- **Leaf:** an executable tracer-bullet ticket under a root.
-- **Ready frontier:** open leaves whose contracts are executable and whose external blockers are complete.
-- **Resolution set:** one explicitly selected standalone issue/leaf or atomic group sharing an owner, base, worktree, branch, receipt, and pull request. Independent issues use separate resolutions.
-- **Internal dependency:** an open blocker included in the same resolution set; it constrains atomic implementation order.
-- **External blocker:** an open blocker outside the selected set; it stops resolution.
-- **Projection:** optional membership in a GitHub Project. Projection is a view, not lifecycle state.
-- **Canonical checkout:** the primary worktree reported by live Git for a repository; synchronization requires it to be clean and on the discovered default branch.
-- **Primary remote:** the one unambiguous remote tracked by the local branch whose name matches that remote's live default branch.
-- **Synchronized implementation base:** the exact default-branch commit shared by the canonical checkout and primary remote after fetch/prune and fast-forward-only synchronization.
-- **Outcome retirement:** authorized removal of only the merged resolution set's clean worktree and branch after exact GitHub and Git proof.
+- **Repository profile:** `application-development`, `scientific-computing`, or `general`; the selected doctrine for shaping, execution, and evidence.
+- **Context pass:** Start's read-and-confirm step over applicable context files and canonical terms.
+- **Shared vocabulary:** project terms that carry one meaning across sources, issues, formulations, code, and reviews.
+- **Truss harness:** the six user-facing skills that select profiles, invoke techniques, and maintain continuity.
+- **Matt technique:** a focused method such as research, grilling, domain modeling, prototype, TDD, diagnosis, or code review invoked by Start when triggered.
+- **Direct/light/governed:** no durable coordination, one standalone issue/PR, or coordinated work respectively.
+- **Standalone issue:** a self-contained executable contract with no required parent.
+- **Root/leaf:** optional decomposition for genuinely coordinated work.
+- **Scientific question:** the bounded unknown motivating scientific work.
+- **Falsifiable claim:** a statement paired with an observation that could show it false.
+- **Benchmark case:** a durable claim-specific comparison with source, oracle class, inputs, justified tolerances, certificates, failure meaning, and provenance.
+- **Oracle independence:** whether reference evidence is meaningfully independent of the implementation under test.
+- **Evidence packet:** the reproducible record of sources, assumptions, revisions, command/environment, raw results, comparisons, certificates, limitations, artifact hashes, and closeout judgments.
+- **Science review:** separate assessment of source, formulation, numerical verification, empirical validation, reproducibility, and implementation promotion.
+- **Result classification:** the scientific outcome, including `VERIFIED`, `FALSIFIED`, partial/inconclusive/source/model/numerical statuses, or `NOT_ATTEMPTED`.
+- **Resolution set:** one selected standalone issue/leaf or truly atomic group sharing one owner, synchronized base, attached worktree, branch, receipt, and PR when code changes.
+- **Projection:** advisory label, milestone, or GitHub Project membership; never lifecycle state.
+- **Canonical checkout / synchronized implementation base:** the live default checkout and exact remote-aligned commit captured after fetch/prune and fast-forward-only synchronization.
+- **Outcome retirement:** authorized removal of only a verified merged outcome's clean local branch/worktree.
 
 ## Invariants
 
-- GitHub, Git, reviews, integration, and current worktrees are authoritative; provider checks are optional context.
-- All six Project Truss skills are callable. Start is the normal Matt-first beginning, while direct stage calls intentionally enter one stage and return to Start.
-- Every unfinished governed state has a next action, and every internal stage returns control to Start.
-- Absence of a governed resolution claim keeps a standalone PR direct; Truss never synthesizes missing leaf state for it.
-- Governed outcomes with incomplete decisions and material rescope require grilling and explicit shared-understanding confirmation before Shape; complete light requests skip that interview.
-- Start directly invokes model-invocable Matt disciplines; user-invoked Matt wrappers are not silently chained as if they had run.
-- Decision maps and their question tickets never become Project Truss execution issues.
-- Labels, milestones, and Project fields never derive lifecycle state; they may provide advisory routing or status views.
-- Multi-leaf selection is explicit.
-- One resolution set has one owner, implementation base, worktree, branch, receipt, and pull request.
-- A resolution set's implementation base is captured only after canonical default synchronization.
-- Outcome retirement never mutates unrelated, active, dirty, diverged, protected, or unverified local state.
-- Partial external mutations fail closed.
-- Root closeout follows verified leaf completion and integrated health.
+- GitHub, Git, reviews, integration, and worktrees are authoritative; optional checks, projections, benchmark files, and evidence artifacts are content or context, not lifecycle authority.
+- Users can call only Project Truss skills; Start selects relevant Matt techniques and continues.
+- Scientific work begins with a question and falsifiable claim, not implementation or generic TDD.
+- TDD applies only to an explicitly durable discrete software contract.
+- Change-detection snapshots are not independent scientific oracles.
+- A valid `FALSIFIED` result is successful scientific completion.
+- Every unfinished state has a next action; intermediate publication, implementation, PR, review, merge, and pre-cleanup are not terminal.
+- Parent/leaf hierarchy and PRs are optional when the outcome does not need them.
+- Partial external mutation fails closed; retirement never mutates unrelated or unverified state.

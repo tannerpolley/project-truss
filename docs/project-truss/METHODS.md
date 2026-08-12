@@ -1,50 +1,34 @@
-# Project Truss Matt Method Routing
+# Project Truss method routing
 
-Project Truss coordinates durable GitHub outcomes and directly invokes Matt Pocock engineering disciplines. Run `project-truss:setup` once per repository, then use `project-truss:start` for normal Matt-first work. The other four lifecycle skills remain callable for intentional stage entry and return to Start. Project Truss owns GitHub-native coordination while Matt methods own shaping and implementation technique.
+Project Truss owns profile selection, GitHub/Git continuity, scientific claim/evidence contracts, and continuation. Matt Pocock skills supply focused techniques. Users call Truss; Start invokes a Matt skill only when current evidence triggers it.
 
-## Invocation modes
-
-| Mode | Meaning |
+| Route | Meaning |
 |---|---|
-| `invocable` | An installed model-invocable Matt skill is called when its trigger matches. |
-| `missing` | A triggered governed method is unavailable, so governed work stops with `method_capability_missing`; light work reports a degradation and continues. |
-| `not_triggered` | The method is known but irrelevant to the current evidence. |
+| `invocable` | Triggered and installed; invoke it now. |
+| `missing` | Triggered but unavailable; block governed work truthfully. |
+| `not_triggered` | Irrelevant to current evidence; do not load it. |
 
-`setup-matt-pocock-skills`, `grill-with-docs`, and Wayfinder are user-invoked or native planning surfaces, not method routes silently chained by another user-invoked skill. Setup applies the repository configuration contract. Start directly invokes model-invocable `grilling` and `domain-modeling`; Wayfinder remains a native Truss planning artifact.
+## Matt techniques
 
-## Adaptive shaping
-
-Matt's current `grill-with-docs` is the engineering wrapper around `grilling` plus `domain-modeling`. Start first reads the repository context glossary, records relevant terms, and routes missing or fuzzy vocabulary through that same composition: one decision question at a time, repository facts inspected directly, and explicit confirmation before Shape. Complete light requests with clear vocabulary skip the interview. Domain terms are written into `CONTEXT.md`; qualifying ADRs are recorded only for surprising, hard-to-reverse trade-offs.
-
-Resume an unchanged published issue without repeating grilling.
-
-## Implementation methods
-
-| Trigger | Method | Durable result |
+| Trigger | Matt skill | Truss use |
 |---|---|---|
-| Stable behavior can be specified at an approved public seam | `tdd` | Behavior-level regression tests |
-| A defect or failed check lacks a demonstrated cause | `diagnosing-bugs` | Reproduction and causal repair |
-| A niche claim needs primary-source evidence | `research` | Canonical research note when useful |
-| Domain language or invariants are ambiguous | `domain-modeling` | `CONTEXT.md` or an ADR |
-| A module boundary or interface needs deliberate design | `codebase-design` | A deep, named module boundary with a small public surface |
-| A design question needs executable evidence | `prototype` | Throwaway branch plus linked verdict |
-| Git reports an active merge or rebase conflict | `resolving-merge-conflicts` | Verified conflict resolution |
-| A shared diff is ready for handoff | `code-review` | Standards report plus per-ticket Spec reports |
-| High-risk or structural code is implemented | `minimize-code-surface`, `cutthroat-code-cleanup` | One minimal canonical implementation |
-| A human must provision, enter secrets, use an unfamiliar dashboard, or perform a one-off migration/cutover | `wizard` | Staged bash wizard for the human; never run it end to end |
-| Skills, `AGENTS.md`, `CLAUDE.md`, or other agent-facing docs change | `writing-for-agents` | Progressive, explicit, single-sourced agent instructions |
-| Scientific-computing code changes | `scientific-coding-and-testing` | Domain invariants, justified tolerances, and scientific verification |
+| Material ambiguity in scope or a scientific claim | `grilling` | One decision question at a time |
+| Shared language, invariants, or formulation concepts are unclear | `domain-modeling` | Update `CONTEXT.md` or a qualifying ADR |
+| A primary source or niche claim is uncertain | `research` | Establish source authority and a reusable note when useful |
+| An executable design or numerical question needs cheap evidence | `prototype` | Throwaway experiment and recorded verdict |
+| A demonstrated defect or numerical failure lacks a cause | `diagnosing-bugs` | Reproduction and causal repair |
+| A durable discrete software contract has an approved public seam | `tdd` | Behavior-level regression contract |
+| A deep module boundary is being designed | `codebase-design` | Small public surface around hidden complexity |
+| Git has active merge/rebase conflicts | `resolving-merge-conflicts` | Verified resolution |
+| Published code is ready for review | `code-review` | Standards over the diff; Spec per issue |
+| Structural/high-risk code is complete | `minimize-code-surface`, `cutthroat-code-cleanup` | One minimal canonical implementation |
+| A human-only procedure is required | `wizard` | A staged human-run script |
+| Agent-facing instructions change | `writing-for-agents` | Progressive, explicit, single-sourced guidance |
 
-User-invoked Matt workflows such as repository setup and `grill-with-docs` may not be callable as model-invoked methods. Truss does not claim to have invoked them. It directly routes to the installed model-invocable disciplines that provide the required engineering behavior.
+## Scientific distinction
 
-## Capability failure
+The scientific protocol is native Truss behavior, not an optional external method. Research establishes source authority; domain modeling sharpens formulation language; prototypes answer uncertain numerical design questions; code review judges implementation quality. None substitutes for the evidence packet or Science review.
 
-Before governed work, `start` verifies repository setup and required methods against the actual available skill list. Plan infers shaping, quality, risk, and profile methods; callers list only extra task-specific requirements. Missing setup routes to `project-truss:setup`. A triggered governed method that is not invocable produces `method_capability_missing`; light work exposes the missing route without inventing a skip.
+TDD is not the default for scientific uncertainty. It runs only when the change includes a durable discrete software contract. Numerical claims instead require independent or explicitly locked oracles, justified tolerances, certificates, provenance, and result classification.
 
-Direct and light work remain available. Governed work stops until the method is installed, configured, or the outcome is explicitly reshaped so that method is no longer required.
-
-## Canonical evidence
-
-Keep `CONTEXT.md`, ADRs, and useful research notes in repository-defined locations. Keep prototypes on throwaway branches with a linked verdict. GitHub issues hold root specs, standalone tickets, and leaves. Do not create local lifecycle mirrors or planning artifacts.
-
-Wayfinder maps and their `## Question` tickets are decision artifacts, not Project Truss execution issues. Shape may cite them as source context, but creates fresh root and leaf contracts and never derives lifecycle state from Wayfinder metadata.
+Missing a governed Matt technique is `method_capability_missing`. Light work reports a degradation and continues where safe. Setup never pretends that a user-invoked wrapper ran.

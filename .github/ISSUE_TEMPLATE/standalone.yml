@@ -1,5 +1,5 @@
-name: Standalone outcome
-description: Publish one self-contained issue without a parent/leaf hierarchy.
+name: Application standalone
+description: Publish one self-contained application-development issue without a parent.
 title: ""
 labels: []
 body:

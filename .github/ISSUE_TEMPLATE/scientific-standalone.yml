@@ -1,0 +1,48 @@
+name: Scientific standalone
+description: Publish one self-contained scientific claim without a parent.
+title: ""
+labels: []
+body:
+  - type: textarea
+    id: claim
+    attributes:
+      label: Claim to Establish
+      description: State the claim and what would falsify it.
+    validations:
+      required: true
+  - type: textarea
+    id: inputs
+    attributes:
+      label: Inputs and Sources
+      description: Name data/source provenance, units, conventions, assumptions, and model version.
+    validations:
+      required: true
+  - type: textarea
+    id: experiment
+    attributes:
+      label: Experiment or Implementation
+      description: Describe the smallest discriminating experiment and implementation only if needed.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance and Falsification Criteria
+      description: Use checkboxes and permit a supported negative result.
+      value: "- [ ] "
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Required Evidence
+      description: Name oracle independence, tolerance basis, certificates, artifacts, and evidence-packet classification.
+    validations:
+      required: true
+  - type: textarea
+    id: blocked_by
+    attributes:
+      label: Blocked by
+      value: "None — can start immediately."
+    validations:
+      required: true

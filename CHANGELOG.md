@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 3.0.0 - 2026-08-12
+
+- Added native application-development and scientific-computing lifecycle profiles behind the same six Truss skills.
+- Added scientific question, falsifiable-claim, benchmark, reproducible evidence-packet, result-classification, and multidimensional Science review contracts.
+- Changed scientific routing so research, formulation, and numerical experiments precede implementation; TDD now applies only to explicitly durable discrete software contracts.
+- Added profile-specific GitHub root, standalone, and leaf issue contracts while preserving optional hierarchy, labels, milestones, and Projects as advisory coordination.
+- Made Setup discover repository-owned scientific paths and commands without imposing a parallel directory layout or lifecycle database.
+
 - Clarified that all six Project Truss skills are callable, Start directly invokes relevant Matt disciplines, and every stage continues or returns through the full Truss lifecycle.
 - Kept standalone pull requests direct so they can merge without synthetic Truss leaves or resolution receipts.
 - Made Start a closed continuation loop with inferred quality/profile methods and non-null governed next actions.

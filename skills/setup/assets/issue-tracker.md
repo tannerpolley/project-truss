@@ -2,11 +2,14 @@
 
 Project Truss uses GitHub Issues in `{repository}` through the authenticated `gh` CLI.
 
+Configured repository profile: `{profile}`.
+
 ## Project Truss execution issues
 
-- Root issues use Problem Statement, Solution, numbered User Stories, Implementation Decisions, Testing Decisions, Out of Scope, and Further Notes when work is decomposed.
-- Standalone issues use What to build, Acceptance criteria, and Blocked by; they do not need a Parent.
-- Executable leaves add Parent only beneath a real root.
+- Application-development roots use Problem Statement, Solution, numbered User Stories, Implementation Decisions, Testing Decisions, Out of Scope, and Further Notes. Standalone issues use What to build, Acceptance criteria, and Blocked by; leaves add Parent.
+- Scientific-computing roots use Scientific Question, Falsifiable Claims, Evidence and Sources, Mathematical or Numerical Formulation, Benchmark and Validation Plan, Acceptance and Falsification Criteria, Out of Scope, and Further Notes.
+- Scientific standalone issues use Claim to Establish, Inputs and Sources, Experiment or Implementation, Acceptance and Falsification Criteria, Required Evidence, and Blocked by; leaves add Parent.
+- Standalone issues never require a parent. Use roots and leaves only when decomposition materially helps.
 - Native sub-issue and blocked-by relationships are authoritative.
 
 ## Wayfinder decision issues

@@ -1,4 +1,4 @@
-version: 2
+version: 3
 public_skills: [setup, start, shape, resolve, close, advanced-user-input]
 skills: [setup, start, shape, resolve, close, advanced-user-input]
 hard_triggers:
@@ -6,23 +6,50 @@ hard_triggers:
   - multiple_independent_units
   - multi_agent_delegation
   - exceeds_safe_context
-root_issue_sections:
-  - Problem Statement
-  - Solution
-  - User Stories
-  - Implementation Decisions
-  - Testing Decisions
-  - Out of Scope
-  - Further Notes
-leaf_issue_sections:
-  - Parent
-  - What to build
-  - Acceptance criteria
-  - Blocked by
-standalone_issue_sections:
-  - What to build
-  - Acceptance criteria
-  - Blocked by
+issue_profiles:
+  application-development:
+    root:
+      - Problem Statement
+      - Solution
+      - User Stories
+      - Implementation Decisions
+      - Testing Decisions
+      - Out of Scope
+      - Further Notes
+    leaf:
+      - Parent
+      - What to build
+      - Acceptance criteria
+      - Blocked by
+    standalone:
+      - What to build
+      - Acceptance criteria
+      - Blocked by
+  scientific-computing:
+    root:
+      - Scientific Question
+      - Falsifiable Claims
+      - Evidence and Sources
+      - Mathematical or Numerical Formulation
+      - Benchmark and Validation Plan
+      - Acceptance and Falsification Criteria
+      - Out of Scope
+      - Further Notes
+    leaf:
+      - Parent
+      - Claim to Establish
+      - Inputs and Sources
+      - Experiment or Implementation
+      - Acceptance and Falsification Criteria
+      - Required Evidence
+      - Blocked by
+    standalone:
+      - Claim to Establish
+      - Inputs and Sources
+      - Experiment or Implementation
+      - Acceptance and Falsification Criteria
+      - Required Evidence
+      - Blocked by
 advisory_labels:
   ready_for_agent: agent-shaped
 receipts: [claim, blocker_or_decision, handoff, verified_closeout]
@@ -42,3 +69,8 @@ blockers:
   - external_state_unavailable
   - context_required
   - vocabulary_required
+  - scientific_claim_required
+  - scientific_evidence_required
+  - scientific_evidence_missing
+  - scientific_evidence_invalid
+  - scientific_review_failed

@@ -21,7 +21,7 @@ Repository Profile: application-development
 
 ### Project Truss entrypoint
 
-Use `project-truss:setup` once to establish repository guidance, then `project-truss:start` to begin or resume Matt-first engineering work. Start selects direct/light/governed coordination, directly invokes callable Matt disciplines, consumes continuation tokens, routes Truss stages, and continues until completion or a named blocker. The other Truss skills are callable for intentional stage entry and return to Start; never stop after one stage.
+Use `project-truss:setup` once to establish the repository profile and guidance, then `project-truss:start` to begin or resume work. Start selects direct/light/governed coordination, applies application or scientific doctrine, invokes relevant Matt techniques, consumes continuation tokens, routes Truss stages, and continues until completion or a named blocker. The other Truss skills are callable for intentional stage entry and return to Start; never stop after one stage.
 
 ### Issue tracker
 

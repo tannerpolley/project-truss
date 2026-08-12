@@ -1,4 +1,4 @@
-"""Project Truss distribution, version, release, and trial handlers."""
+"""Project Truss distribution, version, and release handlers."""
 from __future__ import annotations
 
 import json
@@ -11,12 +11,10 @@ import sys
 from typing import Any
 
 try:
-    from ..agent_usability import validate_trial_receipt, validate_trial_set
-    from ..command_support import Context, ScriptError, arg_value, emit, has_switch, normalize_rel, project_path_for, project_root_for, read_text, run, write_text
+    from ..command_support import Context, ScriptError, arg_value, emit, has_switch, project_path_for, project_root_for, read_text, run, write_text
     from ..package_provenance import runtime_contract_hash, runtime_manifest
 except ImportError:
-    from agent_usability import validate_trial_receipt, validate_trial_set
-    from command_support import Context, ScriptError, arg_value, emit, has_switch, normalize_rel, project_path_for, project_root_for, read_text, run, write_text
+    from command_support import Context, ScriptError, arg_value, emit, has_switch, project_path_for, project_root_for, read_text, run, write_text
     from package_provenance import runtime_contract_hash, runtime_manifest
 
 
@@ -67,8 +65,6 @@ def _surface(name: str, root: Path | None, source_hash: str) -> dict[str, Any]:
 
 
 def command_get_agent_plugin_version(ctx: Context, args: dict[str, Any]) -> int:
-    from revision_status import evaluate_revision_status
-
     root = project_root_for(ctx, args)
     live_root = Path(str(arg_value(args, "LivePluginRoot", default=str(Path.home() / ".codex" / "plugins" / PLUGIN_NAME)))).expanduser()
     manifest = plugin_manifest(root)
@@ -103,21 +99,6 @@ def command_get_agent_plugin_version(ctx: Context, args: dict[str, Any]) -> int:
         if observed_root is None:
             raise ScriptError(f"could not resolve plugin root from observed skill root: {observed_skill}")
     observed = _surface("observed", observed_root, source_hash) if observed_root else None
-    if has_switch(args, "RevisionStatus"):
-        supplied = arg_value(args, "RevisionEvidenceJson")
-        path_value = arg_value(args, "RevisionEvidencePath")
-        if supplied and path_value:
-            raise ScriptError("provide RevisionEvidenceJson or RevisionEvidencePath, not both")
-        evidence = json.loads(str(supplied)) if supplied else json.loads(read_text(project_path_for(root, str(path_value), "RevisionEvidencePath"))) if path_value else {
-            "source_dirty": source["dirty"],
-            "validation_current": False,
-            "source_committed": not source["dirty"] and bool(source["git_commit"]),
-            "deployment_current": live["matches_source"],
-            "installation_current": False,
-            "cleanup_current": False,
-            "fresh_session_acknowledged": has_switch(args, "FreshSessionAcknowledged"),
-        }
-        return emit({"ok": True, "phase": "plugin-revision-status", **evaluate_revision_status(evidence)})
     failures = []
     if not live["matches_source"]:
         failures.append("live plugin differs from source")
@@ -256,49 +237,9 @@ def command_prepare_release(ctx: Context, args: dict[str, Any]) -> int:
     return emit(result, 0 if ok else 1)
 
 
-def command_validate_agent_usability_receipt(ctx: Context, args: dict[str, Any]) -> int:
-    root = project_root_for(ctx, args)
-    receipt_path = arg_value(args, "ReceiptPath")
-    receipt_dir = arg_value(args, "ReceiptDir")
-    if bool(receipt_path) == bool(receipt_dir):
-        raise ScriptError("provide exactly one of ReceiptPath or ReceiptDir")
-    source_root = ctx.plugin_root or ctx.repo_root
-    if receipt_path:
-        path = project_path_for(root, str(receipt_path), "ReceiptPath")
-        receipt = json.loads(read_text(path))
-        observed_root = Path(str(receipt.get("observed_skill_root", ""))).resolve()
-        if runtime_contract_hash(observed_root) != runtime_contract_hash(source_root):
-            raise ScriptError("installed Project Truss package does not match source")
-        validate_trial_receipt(receipt, observed_root)
-        return emit({"ok": True, "phase": "agent-usability-receipt", "receipt": normalize_rel(path, root)})
-    directory = project_path_for(root, str(receipt_dir), "ReceiptDir")
-    receipt_paths = sorted(directory.glob("**/receipt.json"))
-    receipts = [json.loads(read_text(path)) for path in receipt_paths]
-    index_path = directory / "receipt-index.json"
-    if not index_path.is_file():
-        raise ScriptError("agent trial receipt index is missing")
-    index = json.loads(read_text(index_path))
-    observed_root = Path(str(index.get("observed_skill_root", ""))).resolve()
-    if runtime_contract_hash(observed_root) != runtime_contract_hash(source_root):
-        raise ScriptError("installed Project Truss package does not match source")
-    metrics = validate_trial_set(receipts, observed_root)
-    if index.get("package_hash") != runtime_contract_hash(observed_root):
-        raise ScriptError("agent trial receipt index package hash is stale")
-    expected = [normalize_rel(path, source_root) for path in receipt_paths]
-    if index.get("receipts") != expected:
-        raise ScriptError("agent trial receipt index must contain sorted plugin-relative paths")
-    return emit({"ok": True, "phase": "agent-usability-receipt", "receipt_count": len(receipts), "metrics": metrics})
-
-
-def command_run_agent_usability_trials(ctx: Context, args: dict[str, Any]) -> int:
-    raise ScriptError("run-agent-usability-trials.sh must be invoked directly with --execute and an explicit output directory")
-
-
 HANDLERS = {
     "command_get_agent_plugin_version": command_get_agent_plugin_version,
     "command_install": command_install,
     "command_prepare_release": command_prepare_release,
-    "command_run_agent_usability_trials": command_run_agent_usability_trials,
     "command_sync_live": command_sync_live,
-    "command_validate_agent_usability_receipt": command_validate_agent_usability_receipt,
 }

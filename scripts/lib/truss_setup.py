@@ -19,9 +19,15 @@ _REPOSITORY = re.compile(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\Z")
 _CHOICES = {
     "instruction_file": {"AGENTS.md", "CLAUDE.md"},
     "domain_layout": {"single-context", "multi-context"},
+    "repository_profile": {"general", "application-development", "scientific-computing"},
 }
 _TEMPLATES = Path(__file__).parents[2] / "skills/setup/assets"
 _START, _END = "<!-- project-truss:setup:start -->", "<!-- project-truss:setup:end -->"
+_SCIENTIFIC_LISTS = (
+    "benchmark_roots", "research_roots", "canonical_data_roots", "publication_locks",
+    "validation_commands", "experimental_artifact_roots",
+)
+_SCIENTIFIC_FIELDS = {*_SCIENTIFIC_LISTS, "tolerance_policy", "compatibility_policy", "git_history_preserves_retired_science"}
 
 
 class SetupError(RuntimeError):
@@ -40,19 +46,22 @@ def discover_context_files(root: Path) -> tuple[str, ...]:
 @dataclass(frozen=True)
 class SetupRequest:
     repository: str
+    repository_profile: str
     instruction_file: str
     domain_layout: str
     triage_enabled: bool
     available_methods: tuple[str, ...]
+    scientific: Mapping[str, Any] | None = None
 
     @classmethod
     def from_mapping(cls, data: Any) -> SetupRequest:
         fields = set(cls.__dataclass_fields__)
-        if not isinstance(data, Mapping) or set(data) != fields:
-            raise ValueError(f"setup requires exactly {', '.join(sorted(fields))}")
-        string_fields = ("repository", *tuple(_CHOICES))
+        required = fields - {"scientific"}
+        if not isinstance(data, Mapping) or not required <= set(data) or set(data) - fields:
+            raise ValueError(f"setup requires {', '.join(sorted(required))} and optional scientific")
+        string_fields = ("repository", "repository_profile", "instruction_file", "domain_layout")
         if any(not isinstance(data[field], str) for field in string_fields):
-            raise ValueError("repository, instruction_file, and domain_layout must be strings")
+            raise ValueError("repository, repository_profile, instruction_file, and domain_layout must be strings")
         values = {field: data[field].strip() for field in string_fields}
         methods = data["available_methods"]
         if not _REPOSITORY.fullmatch(values["repository"]):
@@ -67,7 +76,81 @@ class SetupRequest:
         normalized = tuple(method.strip() for method in methods)
         if len(normalized) != len(set(normalized)):
             raise ValueError("available_methods must not contain duplicates")
-        return cls(*(values[field] for field in string_fields), data["triage_enabled"], normalized)
+        scientific = data.get("scientific")
+        if scientific is not None:
+            if values["repository_profile"] != "scientific-computing" or not isinstance(scientific, Mapping) or set(scientific) != _SCIENTIFIC_FIELDS:
+                raise ValueError("scientific must be the complete scientific-computing setup object")
+            normalized_science: dict[str, Any] = {}
+            for field in _SCIENTIFIC_LISTS:
+                items = scientific[field]
+                if not isinstance(items, list) or any(not isinstance(item, str) or not item.strip() for item in items):
+                    raise ValueError(f"scientific {field} must be an array of non-empty strings")
+                values_list = [item.strip() for item in items]
+                if len(values_list) != len(set(values_list)):
+                    raise ValueError(f"scientific {field} must not contain duplicates")
+                normalized_science[field] = values_list
+            for field in ("tolerance_policy", "compatibility_policy"):
+                if not isinstance(scientific[field], str) or not scientific[field].strip():
+                    raise ValueError(f"scientific {field} must be non-empty")
+                normalized_science[field] = scientific[field].strip()
+            if type(scientific["git_history_preserves_retired_science"]) is not bool:
+                raise ValueError("scientific git_history_preserves_retired_science must be boolean")
+            normalized_science["git_history_preserves_retired_science"] = scientific["git_history_preserves_retired_science"]
+            scientific = normalized_science
+        return cls(*(values[field] for field in string_fields), data["triage_enabled"], normalized, scientific)
+
+
+def _repository_profile(root: Path, instruction_files: list[str]) -> str:
+    profiles = {
+        match.group(1)
+        for name in instruction_files
+        for match in re.finditer(
+            r"(?im)^[ \t]*Repository Profile:[ \t]*(general|application-development|scientific-computing)[ \t]*$",
+            (root / name).read_text(encoding="utf-8"),
+        )
+    }
+    if len(profiles) > 1:
+        raise SetupError("state_contradiction", "instruction files declare conflicting repository profiles")
+    return next(iter(profiles), "general")
+
+
+def discover_repository_profile(root: Path) -> str:
+    return _repository_profile(root, [name for name in ("CLAUDE.md", "AGENTS.md") if (root / name).is_file()])
+
+
+def _set_repository_profile(text: str, profile: str) -> str:
+    marker = re.compile(r"(?im)^[ \t]*Repository Profile:[ \t]*(?:general|application-development|scientific-computing)[ \t]*$")
+    if marker.search(text):
+        return marker.sub(f"Repository Profile: {profile}", text)
+    prefix = text.rstrip()
+    return prefix + ("\n\n" if prefix else "") + f"Repository Profile: {profile}\n"
+
+
+def _scientific_repository(root: Path) -> dict[str, Any]:
+    def existing(*candidates: str) -> list[str]:
+        return [name for name in candidates if (root / name).exists()]
+
+    return {
+        "benchmark_roots": existing("validation", "tests/benchmarks", "benchmarks"),
+        "research_roots": existing("docs/research", "research", "lab", "notebooks"),
+        "canonical_data_roots": existing("data", "datasets"),
+        "publication_locks": existing("validation/locks", "tests/reference", "data/reference"),
+        "validation_commands": [
+            command for path, command in (
+                ("tools/check-affected.sh", "./tools/check-affected.sh"),
+                ("tools/check-all.sh", "./tools/check-all.sh"),
+                ("scripts/validate.sh", "./scripts/validate.sh"),
+            ) if (root / path).is_file()
+        ],
+        "experimental_artifact_roots": existing("lab", "notebooks"),
+        "tolerance_policy": "claim-specific atol/rtol with a named numerical or physical basis",
+        "compatibility_policy": "repository-defined only; change-detection snapshots are not scientific oracles",
+        "git_history_preserves_retired_science": True,
+    }
+
+
+def _markdown_list(values: list[str], empty: str) -> str:
+    return "\n".join(f"- `{value}`" for value in values) if values else f"- {empty}"
 
 
 def _replace_agent_skills(text: str, block: str) -> str:
@@ -134,12 +217,15 @@ def discover_setup_request(root: Path, runner: Callable[..., Any] = subprocess.r
     contexts = [path for path in context_files if Path(path).name == "CONTEXT.md"]
     signals = "CONTEXT-MAP.md" in context_files or (root / "pnpm-workspace.yaml").is_file() or len(contexts) > 1
     triage = (root / "docs/agents/triage-labels.md").is_file()
+    profile = discover_repository_profile(root)
     return SetupRequest(
         repository=repository,
+        repository_profile=profile,
         instruction_file=instruction_files[0] if instruction_files else "AGENTS.md",
         domain_layout="multi-context" if signals else "single-context",
         triage_enabled=triage,
         available_methods=(),
+        scientific=_scientific_repository(root) if profile == "scientific-computing" else None,
     )
 
 
@@ -204,20 +290,29 @@ def apply_setup(root: Path, request: SetupRequest, *, write: bool = True) -> dic
         raise SetupError("state_contradiction", f"existing instruction preference is {instruction_files[0]}")
     if (multi_signals or len(contexts) > 1) and request.domain_layout != "multi-context":
         raise SetupError("state_contradiction", "repository evidence requires multi-context domain layout")
+    scientific = dict(request.scientific or _scientific_repository(root)) if request.repository_profile == "scientific-computing" else None
     observed = {
         "instruction_files": instruction_files,
         "agent_docs": sorted(path.name for path in (root / "docs/agents").glob("*.md")) if (root / "docs/agents").is_dir() else [],
         "context_files": list(context_files),
         "domain_signals": multi_signals,
         "selected_domain_layout": request.domain_layout,
+        "repository_profile": request.repository_profile,
+        "scientific_repository": scientific,
         "reported_available_methods": list(request.available_methods),
     }
     instruction = root / request.instruction_file
     original = instruction.read_text(encoding="utf-8") if instruction.is_file() else ""
     triage = "\n\n### Triage labels\n\nMatt triage roles map to descriptive labels only. See `docs/agents/triage-labels.md`." if request.triage_enabled else ""
+    configured = _replace_agent_skills(
+        _set_repository_profile(original, request.repository_profile),
+        _template("agent-skills.md", triage=triage, profile=request.repository_profile),
+    )
     outputs = {
-        instruction: _replace_agent_skills(original, _template("agent-skills.md", triage=triage)),
-        root / "docs/agents/issue-tracker.md": _template("issue-tracker.md", repository=request.repository),
+        instruction: configured,
+        root / "docs/agents/issue-tracker.md": _template(
+            "issue-tracker.md", repository=request.repository, profile=request.repository_profile
+        ),
         root / "docs/agents/domain.md": _template(f"domain-{request.domain_layout}.md"),
     }
     for path in tuple(outputs)[1:]:
@@ -229,6 +324,24 @@ def apply_setup(root: Path, request: SetupRequest, *, write: bool = True) -> dic
         triage_current, _template("triage-labels.md") if request.triage_enabled else None
     )
     outputs[triage_path] = triage_output if triage_output.strip() else None
+    science_path = root / "docs/agents/scientific-computing.md"
+    science_current = science_path.read_text(encoding="utf-8") if science_path.is_file() else ""
+    science_block = None
+    if scientific:
+        science_block = _template(
+            "scientific-computing.md",
+            benchmark_roots=_markdown_list(scientific["benchmark_roots"], "No benchmark root discovered; define one before publishing durable cases."),
+            research_roots=_markdown_list(scientific["research_roots"], "No research workspace discovered; use repository-approved locations."),
+            data_roots=_markdown_list(scientific["canonical_data_roots"], "No canonical data root discovered; identify source locations per claim."),
+            publication_locks=_markdown_list(scientific["publication_locks"], "No locked publication or validated-release artifacts discovered."),
+            validation_commands=_markdown_list(scientific["validation_commands"], "No repository validation command discovered; record exact commands in each evidence packet."),
+            experimental_roots=_markdown_list(scientific["experimental_artifact_roots"], "No experimental artifact root discovered; use repository-approved temporary locations."),
+            tolerance_policy=scientific["tolerance_policy"],
+            compatibility_policy=scientific["compatibility_policy"],
+            history_policy="yes" if scientific["git_history_preserves_retired_science"] else "no",
+        )
+    science_output = _managed(science_current, science_block)
+    outputs[science_path] = science_output if science_output.strip() else None
     changed = [path.relative_to(root).as_posix() for path, text in outputs.items() if (
         (path.read_text(encoding="utf-8") if path.is_file() else None) != text
     )]
@@ -239,6 +352,7 @@ def apply_setup(root: Path, request: SetupRequest, *, write: bool = True) -> dic
         "changed_paths": changed,
         "applied": write,
         "instruction_file": request.instruction_file,
+        "repository_profile": request.repository_profile,
         "method_routes": all_method_routes(request.available_methods),
         "evidence": observed,
     }

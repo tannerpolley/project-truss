@@ -81,7 +81,6 @@ class CommandRegistryTests(unittest.TestCase):
         expected_modules = {
             "command_project_truss": "commands.project",
             "command_prepare_release": "commands.distribution",
-            "command_validate_agent_usability_receipt": "commands.distribution",
         }
         for name, module in expected_modules.items():
             self.assertTrue(handlers[name].__module__.endswith(module))

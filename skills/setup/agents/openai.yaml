@@ -1,4 +1,4 @@
 interface:
   display_name: "Setup"
-  short_description: "Configure the repo and record Matt readiness."
-  default_prompt: "Use $project-truss:setup once to configure GitHub, Git, and docs, record available Matt disciplines, and return to Start."
+  short_description: "Configure the repository profile and Truss guidance."
+  default_prompt: "Use $project-truss:setup to configure the repository profile, GitHub and context guidance, scientific surfaces when applicable, and available Matt techniques, then return to Start."

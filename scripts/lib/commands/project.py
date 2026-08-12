@@ -13,7 +13,8 @@ try:
         synchronize_default, validate_preparation,
     )
     from ..truss_github import GitHubClient, GitHubObservationError, ProjectProjection, load_fixture
-    from ..truss_setup import SetupError, SetupRequest, apply_setup, discover_context_files, discover_setup_request, validate_setup_target
+    from ..scientific_evidence import ScientificValidation, issue_body_sha256, validate_benchmark_case, validate_evidence_packet
+    from ..truss_setup import SetupError, SetupRequest, apply_setup, discover_context_files, discover_repository_profile, discover_setup_request, validate_setup_target
     from ..truss_policy import (
         FinalHealth,
         ResolutionReceipt,
@@ -34,7 +35,8 @@ except ImportError:
         synchronize_default, validate_preparation,
     )
     from truss_github import GitHubClient, GitHubObservationError, ProjectProjection, load_fixture
-    from truss_setup import SetupError, SetupRequest, apply_setup, discover_context_files, discover_setup_request, validate_setup_target
+    from scientific_evidence import ScientificValidation, issue_body_sha256, validate_benchmark_case, validate_evidence_packet
+    from truss_setup import SetupError, SetupRequest, apply_setup, discover_context_files, discover_repository_profile, discover_setup_request, validate_setup_target
     from truss_policy import (
         FinalHealth,
         ResolutionReceipt,
@@ -155,6 +157,52 @@ def _auto_health(root: Path, snapshots: list[Any], receipt: ResolutionReceipt | 
     return FinalHealth(verification_passed, integration_healthy, source_clean, head_sha, review_passed)
 
 
+def _final_health(
+    root: Path, args: dict[str, Any], snapshots: list[Any], receipt: ResolutionReceipt | None = None,
+) -> FinalHealth:
+    raw, _ = read_json_arg(root, args, "HealthJson", "HealthPath", required=False)
+    health = _auto_health(root, snapshots, receipt) if has_switch(args, "AutoHealth") or raw is None else FinalHealth.from_mapping(raw)
+    if health.source_clean != (not _git_text(root, "status", "--porcelain")):
+        raise ScriptError("Health source_clean conflicts with live Git state")
+    return health
+
+
+def _scientific_evidence(
+    root: Path, args: dict[str, Any], snapshots: list[Any], expected_revision: str,
+) -> tuple[dict[int, ScientificValidation], str]:
+    issues = tuple(snapshot.issue.number for snapshot in snapshots)
+    issue_hashes = {snapshot.issue.number: issue_body_sha256(snapshot.issue.body) for snapshot in snapshots}
+    raw, source = read_json_arg(
+        root, args, "ScientificEvidenceJson", "ScientificEvidencePath", required=False
+    )
+    if raw is None:
+        return {}, source
+    if not source:
+        raise ScriptError("Closeout requires ScientificEvidencePath so the evidence remains inspectable")
+    nested = isinstance(raw, dict) and "issues" in raw or len(issues) != 1
+    packets: Any = raw
+    if isinstance(raw, dict) and "issues" in raw:
+        packets = raw["issues"]
+        if not isinstance(packets, dict):
+            raise ScriptError("scientific evidence issues must be an object keyed by issue number")
+    elif len(issues) == 1:
+        packets = {str(issues[0]): raw}
+    else:
+        raise ScriptError("multi-issue closeout requires scientific evidence keyed by issue number")
+    expected = {str(number) for number in issues}
+    if not isinstance(packets, dict) or set(packets) - expected:
+        raise ScriptError("scientific evidence contains an issue outside the resolution set")
+    return {
+        number: validate_evidence_packet(
+            packets[str(number)], root, packet_path=source,
+            packet_key=str(number) if nested else "",
+            expected_issue=number, expected_issue_body_sha256=issue_hashes[number],
+            expected_revision=expected_revision,
+        )
+        for number in issues if str(number) in packets
+    }, source
+
+
 def _continuation(
     *, next_skill: str = "start", next_action: str = "return to Start and re-read live state",
     blockers: tuple[str, ...] = (), evidence: dict[str, Any] | None = None,
@@ -222,13 +270,45 @@ def command_project_truss(ctx: Context, args: dict[str, Any]) -> int:
         "start": "Plan", "claim": "Claim", "close": "Closeout", "status": "Status",
         "prepare": "Prepare", "cleanup": "Cleanup", "project": "Project",
         "setup": "Setup", "resolve": "Resolve",
+        "validatebenchmark": "ValidateBenchmark", "validate-benchmark": "ValidateBenchmark",
+        "validatescientificevidence": "ValidateScientificEvidence",
+        "validate-scientific-evidence": "ValidateScientificEvidence",
     }.get(raw_action, raw_action.title())
+    if action == "ValidateBenchmark":
+        case, source = read_json_arg(root, args, "BenchmarkJson", "BenchmarkPath")
+        result = validate_benchmark_case(case)
+        return emit({"ok": result.ok, "action": action, "source": source or "inline", **result.to_dict()}, 0 if result.ok else 1)
+    if action == "ValidateScientificEvidence":
+        packet, source = read_json_arg(root, args, "ScientificEvidenceJson", "ScientificEvidencePath")
+        revision = _git_text(root, "rev-parse", "HEAD") if source else ""
+        if isinstance(packet, dict) and isinstance(packet.get("issues"), dict):
+            try:
+                results = {
+                    str(number): validate_evidence_packet(
+                        value, root, packet_path=source, packet_key=str(number),
+                        expected_issue=int(number), expected_revision=revision,
+                    ) for number, value in packet["issues"].items()
+                }
+            except (TypeError, ValueError) as exc:
+                raise ScriptError("scientific evidence issue keys must be positive integers") from exc
+            ok = bool(results) and all(result.ok for result in results.values())
+            payload = {"ok": ok, "action": action, "source": source or "inline",
+                       "results": {number: result.to_dict() for number, result in results.items()}}
+            if ok and source:
+                payload["receipts"] = {number: result.receipt() for number, result in results.items()}
+            return emit(payload, 0 if ok else 1)
+        result = validate_evidence_packet(packet, root, packet_path=source, expected_revision=revision)
+        payload = {"ok": result.ok, "action": action, "source": source or "inline", **result.to_dict()}
+        if result.ok and source:
+            payload["receipt"] = result.receipt()
+        return emit(payload, 0 if result.ok else 1)
     if action == "Plan":
         request, _ = read_json_arg(root, args, "RequestJson", "RequestPath", required=False)
         request_data = dict(request or {})
         if raw_action == "start":
             request_data.setdefault("explicit", True)
             request_data.setdefault("start_entry", True)
+            request_data.setdefault("repository_profile", discover_repository_profile(root))
         repository, pull_request = str(arg_value(args, "Repository", default="")), arg_value(args, "PullRequest")
         if bool(repository) != (pull_request not in (None, "")):
             raise ScriptError("Repository and PullRequest must be provided together")
@@ -334,8 +414,14 @@ def command_project_truss(ctx: Context, args: dict[str, Any]) -> int:
     if action == "Status":
         snapshot = load_fixture(resolve_under(root, str(snapshot_arg), "SnapshotPath")) if snapshot_arg else github.snapshot(repository, issue)
         implementation_base = str(arg_value(args, "ImplementationBase", default=""))
+        contract = parse_issue_contract(snapshot.issue.body)
+        recorded_resolution = any("Project Truss resolution receipt:" in comment.body for comment in snapshot.comments)
         code_leaf_started = not snapshot.children and bool(
             snapshot.assignees or snapshot.closing_prs or snapshot.issue.state == "CLOSED"
+        ) and not (
+            contract.profile == "scientific-computing"
+            and not snapshot.closing_prs
+            and not recorded_resolution
         )
         if code_leaf_started and not implementation_base:
             raise ScriptError("ImplementationBase is required after claim or implementation starts")
@@ -352,26 +438,45 @@ def command_project_truss(ctx: Context, args: dict[str, Any]) -> int:
                 root, args, issue, require_active_workspace=False
             )
             snapshots = [github.snapshot(repository, number) for number in receipt.issues]
-            health, _ = read_json_arg(root, args, "HealthJson", "HealthPath", required=False)
-            final_health = _auto_health(root, snapshots, receipt) if has_switch(args, "AutoHealth") or health is None else FinalHealth.from_mapping(health)
-            findings = close_resolution_findings(snapshots, receipt, final_health)
+            final_health = _final_health(root, args, snapshots, receipt)
+            expected_revision = final_health.head_sha or _git_text(root, "rev-parse", "HEAD")
+            evidence, evidence_source = _scientific_evidence(root, args, snapshots, expected_revision)
+            findings = close_resolution_findings(snapshots, receipt, final_health, evidence)
             payload = {"ok": not findings, "action": action, "source": "live", "next_skill": "start",
                        "issues": list(receipt.issues), "findings": list(findings),
-                       "receipt": receipt.to_dict(), "health": final_health.__dict__}
+                       "receipt": receipt.to_dict(), "health": final_health.__dict__,
+                       "scientific_evidence": {str(number): item.to_dict() for number, item in evidence.items()},
+                       "scientific_evidence_source": evidence_source or "none"}
             return _stage(
                 payload,
-                next_action="run Cleanup after the merged PR and deleted head are confirmed" if not findings else "repair the closeout findings and retry",
-                blockers=tuple(findings), evidence={"health": final_health.__dict__}, exit_code=0 if not findings else 1,
+                next_action=(
+                    "run Cleanup after the merged PR and deleted head are confirmed"
+                    if not findings and receipt.pull_request is not None
+                    else "return to Start and re-read scientific closeout"
+                    if not findings else "repair the closeout findings and retry"
+                ),
+                blockers=tuple(findings), evidence={"health": final_health.__dict__, "scientific_evidence": payload["scientific_evidence"]}, exit_code=0 if not findings else 1,
             )
         snapshot = github.snapshot(repository, issue)
+        contract = parse_issue_contract(snapshot.issue.body)
         if not snapshot.children:
-            raise ScriptError("ResolutionJson is required for code-leaf Closeout")
+            evidence_supplied = arg_value(args, "ScientificEvidencePath") or arg_value(args, "ScientificEvidenceJson")
+            if contract.profile != "scientific-computing" or snapshot.closing_prs or not evidence_supplied:
+                raise ScriptError("ResolutionJson is required for code-leaf Closeout")
         implementation_base = str(arg_value(args, "ImplementationBase", default=""))
         if implementation_base:
             _validate_implementation_base(root, implementation_base)
-        health, _ = read_json_arg(root, args, "HealthJson", "HealthPath", required=False)
-        final_health = _auto_health(root, [snapshot]) if has_switch(args, "AutoHealth") or health is None else FinalHealth.from_mapping(health)
-        findings = closeout_findings(snapshot, final_health)
+        final_health = _final_health(root, args, [snapshot])
+        expected_revision = final_health.head_sha or _git_text(root, "rev-parse", "HEAD")
+        if not snapshot.closing_prs and contract.profile == "scientific-computing" and contract.kind != "root":
+            try:
+                expected_revision = synchronize_default(root).implementation_base
+            except GitLifecycleError as exc:
+                raise ScriptError(f"{exc.blocker}: PR-free evidence requires the synchronized remote default: {exc}") from exc
+            if final_health.head_sha and final_health.head_sha != expected_revision:
+                raise ScriptError("Health head_sha conflicts with the synchronized remote default")
+        evidence, evidence_source = _scientific_evidence(root, args, [snapshot], expected_revision)
+        findings = closeout_findings(snapshot, final_health, evidence.get(issue))
         payload = {
             "ok": not findings,
             "action": action,
@@ -379,14 +484,21 @@ def command_project_truss(ctx: Context, args: dict[str, Any]) -> int:
             "next_skill": "start",
             "findings": list(findings),
             "health": final_health.__dict__,
+            "scientific_evidence": evidence.get(issue).to_dict() if issue in evidence else None,
+            "scientific_evidence_source": evidence_source or "none",
         }
         return _stage(
             payload,
-            next_action="run Cleanup after the merged PR and deleted head are confirmed" if not findings else "repair the closeout findings and retry",
-            blockers=tuple(findings), evidence={"health": final_health.__dict__}, exit_code=0 if not findings else 1,
+            next_action=(
+                "run Cleanup after the merged PR and deleted head are confirmed"
+                if not findings and snapshot.closing_prs else
+                "return to Start and re-read scientific closeout"
+                if not findings else "repair the closeout findings and retry"
+            ),
+            blockers=tuple(findings), evidence={"health": final_health.__dict__, "scientific_evidence": payload["scientific_evidence"]}, exit_code=0 if not findings else 1,
         )
     raise ScriptError(
-        "Action must be Plan, Setup, Prepare, Project, Claim, Resolve, Status, Closeout, or Cleanup"
+        "Action must be Plan, Setup, Prepare, Project, Claim, Resolve, Status, Closeout, Cleanup, ValidateBenchmark, or ValidateScientificEvidence"
     )
 
 

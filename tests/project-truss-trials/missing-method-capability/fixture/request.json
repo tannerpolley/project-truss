@@ -1,7 +1,0 @@
-{
-  "explicit": true,
-  "new_outcome": false,
-  "matt_configured": true,
-  "required_methods": ["tdd"],
-  "available_methods": []
-}

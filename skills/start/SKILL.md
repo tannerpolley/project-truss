@@ -1,64 +1,52 @@
 ---
 name: start
-description: Use to begin or resume Matt-first work; Start performs the repository context and shared-vocabulary pass, selects direct, light, or governed coordination, invokes only relevant Matt disciplines, and continues until completion or a named blocker.
+description: Use to begin or resume profile-aware work; Start reads shared context, establishes the scientific or application claim, invokes relevant Matt techniques, and continues through truthful closeout or a named blocker.
 ---
 
 # Project Truss Start
 
-Own one outcome from classification through completion. Start is the normal Matt-first entrypoint: choose the smallest lane, invoke callable Matt disciplines directly, re-read authoritative state, consume each continuation token, and keep going until direct completion, a real decision/authority blocker, or verified closeout. Apply `docs/project-truss/contract.yml` and `docs/project-truss/METHODS.md`.
+Apply `docs/project-truss/contract.yml` and `docs/project-truss/METHODS.md`. Own one outcome until direct completion or verified closeout. Do not make the user choose internal skills.
 
-## Classify and preflight
+## Establish current truth
 
-Resolve the installed plugin root from this skill's location as `PROJECT_TRUSS_ROOT`. Run `"$PROJECT_TRUSS_ROOT/scripts/project-truss.sh" -Action Plan` with a faithful request, including `start_entry: true`, profile, code/behavior seam, risk, scope completeness, and any `design_change`, `manual_procedure`, or `agent_document_change` trigger. Plan selects `direct`, `light`, or `governed`; follow its `continuation`, `next_action`, and `method_routes` without asking the user to choose an internal skill. Direct work stays direct; light work may show degraded optional methods without stopping.
+Resolve this plugin root as `PROJECT_TRUSS_ROOT`. Read the exact repository profile, configured `docs/agents/`, root `CONTEXT.md` or `CONTEXT-MAP.md`, nearest context, ADRs, Git/GitHub state, current worktrees, and installed Matt skills. Extract relevant canonical terms. Missing or conflicting shared vocabulary routes to `domain-modeling` and, when a decision is material, `grilling` through one question at a time.
 
-For an existing pull request, pass `-Repository OWNER/REPO -PullRequest N` to Plan. Plan reads live linked issues and treats their canonical resolution receipt as the claim record. With no matching receipt, review, verify, merge with authority, and safely clean the PR through ordinary Git/GitHub guidance; do not Shape a synthetic leaf or invoke Resolve/Close. A matching receipt remains governed, and unavailable or malformed evidence blocks.
+Run Plan with `start_entry:true`, repository profile, context evidence, risk, scope completeness, change type, and actual method availability. Follow its `continuation`, `next_action`, and `method_routes`. Missing setup routes to `setup`; return here afterward.
 
-Before governed work, verify `docs/agents/` setup and the actual available Matt skill list. Pass `matt_configured` and `available_methods`; use `required_methods` only for additional task-specific methods. If setup is absent, route to `setup`; after Setup, return here. Missing a triggered governed method is `method_capability_missing`; light work reports the degradation and continues.
+## Apply the profile
 
-## Read context and vocabulary
+Application-development work proceeds from user behavior and durable software contracts. Governed new outcomes or material rescope with incomplete decisions invoke Matt `grilling` and `domain-modeling`; complete light work skips the interview.
 
-On every new Start entry, read the discovered root `CONTEXT.md` or `CONTEXT-MAP.md` and the nearest applicable context file before shaping or implementation. Treat it as shared language: extract the relevant canonical terms into `context_terms`, pass `context_reviewed: true`, and never use it as a scratchpad, implementation spec, or lifecycle ledger. If the context file is missing, a term is absent, or language is fuzzy or conflicting, invoke Matt's model-invocable `domain-modeling` and `grilling` disciplines. Ask one concise question at a time through `project-truss:advanced-user-input` when the answer is material, update `CONTEXT.md` inline when a term is settled, and use an ADR only for a surprising, hard-to-reverse trade-off. Do not claim the context pass is complete by setting `scope_complete`.
+Scientific-computing work proceeds in this order:
 
-Plan reports `context_required` or `vocabulary_required` when this pass is incomplete. Follow its continuation back into Start, then re-plan with the observed files, terms, and confirmation. Clear vocabulary lets low-risk light work continue without an interview; governed new outcomes or material rescope require `vocabulary_confirmed: true` before Shape. An unchanged existing PR resumes without repeating the pass.
+1. scientific question;
+2. falsifiable claim or claims;
+3. sources, data, units, conventions, assumptions, and model version;
+4. mathematical or numerical formulation;
+5. numerical experiment or benchmark with a named oracle and tolerance basis;
+6. implementation only when needed;
+7. scientific review and evidence-backed GitHub closeout.
 
-## Grill only when needed
+Pass `scientific_question`, `falsifiable_claims`, and `scientific_evidence_plan` to Plan. A missing question/claim or evidence plan is an instruction to continue the Start interview, not a reason to silently stop: invoke `research` for uncertain primary sources, `domain-modeling` for formulation language/invariants, `prototype` for an uncertain numerical design, and ask the smallest unresolved material question through `advanced-user-input`. Confirm what observation would falsify each claim before Shape. TDD is routed only when `durable_software_contract:true`; scientific uncertainty is not converted into generic red-green-refactor work.
 
-Only governed new outcomes or material rescope with incomplete decisions invoke Matt's `grilling` and `domain-modeling` skills directly. Ask one concise question at a time with a recommendation, look up facts instead of asking, and do not Shape until shared understanding is confirmed. Complete, low-risk light requests skip the interview.
+## Choose the smallest lane
 
-Only then pass the actual question/answer decisions in `grilling_decisions` and the user's words in `shared_understanding_confirmation`. Resume an unchanged published issue without repeating the interview.
+- `direct`: no durable Truss coordination.
+- `light`: one standalone issue and pull request.
+- `governed`: explicit governance, release/milestone work, multiple units, delegation, or unsafe context size.
 
-Matt method routes are explicit:
+Standalone issues do not need parents. Parent/leaf structure is optional and only for genuine decomposition. Labels, milestones, Projects, and optional status checks are advisory.
 
-- `invocable`: invoke the installed Matt skill directly.
-- `missing`: stop with `method_capability_missing`.
-- `not_triggered`: do not run the method.
-
-When the task contains a human-only provisioning, secret, dashboard, migration, or cutover procedure, invoke Matt's model-invocable `wizard` and produce the staged human-run script; do not run it end to end. When changing skills, `AGENTS.md`, `CLAUDE.md`, or other agent-facing contracts, invoke `writing-for-agents` and keep the instructions progressive, explicit, and single-sourced.
-
-When a material decision exceeds one safe context, Start owns the native Wayfinder planning path before Shape. Name and grill the destination, create one `wayfinder:map` issue and native child decision tickets using the configured operations, then resolve at most one non-research frontier ticket per session. Once no decision fog remains, route to Shape. Treat the map and `## Question` tickets only as source context, never execution issues or lifecycle evidence.
-
-## Continuation loop
-
-After every Shape, Claim, Resolve, Close, failure-recovery, merge, and Cleanup action, consume the returned continuation token, re-read GitHub, Git, reviews, optional provider checks, and worktrees, then perform its named next action in the same turn. An implementation request authorizes routine in-scope issue, branch, pull-request, guarded merge, and exact outcome cleanup operations; ask only for a genuinely missing material decision or authority boundary.
-
-Do not finish at issue publication, implementation, PR creation, review, merge, or pre-cleanup. On verification or review failure, rerun Plan with the matching `failed_gate`, invoke its required `diagnosing-bugs`, repair the cause, and retry. Optional provider checks do not add a lifecycle gate. Stop only on a blocker named in the contract, an intentional Wayfinder handoff, direct-work completion, or verified governed closeout.
-
-## Synchronize before resolution
-
-Before any implementation-base receipt or feature worktree is created, enter the canonical checkout and run:
+Before capturing an implementation base, run:
 
 ```bash
 "$PROJECT_TRUSS_ROOT/scripts/project-truss.sh" -Action Prepare -RepoRoot .
 ```
 
-Prepare discovers the canonical checkout, primary remote, and remote default branch from live Git state. It requires the canonical checkout to be clean, fetches the primary remote with pruning, and advances the local default branch only by fast-forward. Its returned full `implementation_base` is the only valid base for the new resolution branch/worktree.
+Prepare discovers the canonical checkout, primary remote, and remote default branch, fetches with pruning, requires a clean checkout, and advances only by fast-forward. Dirty, ahead, diverged, detached, or ambiguous state is a truthful blocker; never reset, rebase, auto-stash, discard work, or assume `main`.
 
-Treat `state_contradiction` from a dirty, non-default, ahead, or diverged canonical checkout as a truthful blocker. Never reset, rebase, auto-stash, discard work, assume the branch is named `main`, or capture the base before Prepare succeeds.
+## Continue
 
-## Route from current truth
+Route to `shape` for missing publication, `resolve` for a selected Ready issue/set, and `close` for implementation or PR evidence. A research-only scientific issue whose evidence is already durable and needs no repository mutation may be claimed by sole assignment and executed without Prepare, an implementation receipt, worktree, branch, or PR; route its path-backed evidence directly to Close. If evidence files must enter Git history, use the normal synchronized branch/PR path even when no production code changes. After issue publication, PR creation, review, merge, pre-cleanup, failure recovery, and every stage result, consume the continuation token, re-read authoritative state, and keep going. Optional provider checks are context, not gates.
 
-- Use `shape` when the native GitHub structure is absent or materially wrong.
-- Use `resolve` when one or more explicitly selected Ready leaves can proceed or a recorded resolution set must continue.
-- Use `close` when a governed selected set has a pull request or appears complete.
-
-Ask through `advanced-user-input` only for a material decision or authority boundary. Otherwise re-enter from GitHub, Git, canonical evidence, optional provider checks, and current worktrees rather than remembered state.
+For an existing PR, Plan with `-Repository OWNER/REPO -PullRequest N`. Without a matching Truss receipt, review/merge/cleanup it directly; do not synthesize an issue. Stop only for a named contract blocker, missing material authority, direct completion, or verified closeout.

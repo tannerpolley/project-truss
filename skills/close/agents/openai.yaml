@@ -1,5 +1,5 @@
 interface:
   capabilities: [filesystem.read, filesystem.write, shell, git, github, native.user-input]
   display_name: "Close"
-  short_description: "Review, merge, roll up, and retire an outcome."
-  default_prompt: "Use $project-truss:close for Matt review, evidence verification, merge or roll-up, safe local retirement, and return to Start."
+  short_description: "Judge evidence, close, merge, and retire safely."
+  default_prompt: "Use $project-truss:close for application and scientific review, evidence classification, guarded merge or direct research closeout, safe local retirement, and return to Start."

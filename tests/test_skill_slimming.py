@@ -8,7 +8,7 @@ SKILLS = {"setup", "start", "shape", "resolve", "close", "advanced-user-input"}
 
 
 class SkillSlimmingTests(unittest.TestCase):
-    def test_exact_six_skill_surface_is_compact_and_matt_first(self):
+    def test_exact_six_skill_surface_is_compact_and_profile_aware(self):
         skill_files = sorted((ROOT / "skills").glob("*/SKILL.md"))
         self.assertEqual(SKILLS, {path.parent.name for path in skill_files})
         self.assertLessEqual(
@@ -32,14 +32,14 @@ class SkillSlimmingTests(unittest.TestCase):
         self.assertEqual([], findings)
         self.assertEqual(6, metrics["skill_count"])
 
-    def test_metadata_reconstructs_the_matt_first_workflow(self):
+    def test_metadata_reconstructs_the_profile_aware_workflow(self):
         workflow = {
-            "setup": ("once per repository", "available Matt disciplines", "return to Start"),
-            "start": ("Matt-first", "grilling", "verified closeout"),
-            "shape": ("confirmed Matt", "native GitHub", "return to Start"),
-            "resolve": ("Ready", "Matt TDD", "pull request", "return to Start"),
-            "close": ("Matt review", "merge", "local retirement", "return to Start"),
-            "advanced-user-input": ("native Truss", "bounded question", "record", "return to Start"),
+            "setup": ("once per repository", "repository profile", "return to Start"),
+            "start": ("profile-aware", "falsifiable claim", "truthful closeout"),
+            "shape": ("profile-specific", "native GitHub", "return to Start"),
+            "resolve": ("Ready", "scientific protocol", "pull request", "return to Start"),
+            "close": ("scientific review", "merge", "retire", "return to Start"),
+            "advanced-user-input": ("scientific", "bounded", "record", "return to Start"),
         }
         reconstructed = []
         for name, phrases in workflow.items():

@@ -1,121 +1,59 @@
 # Project Truss runtime contract
 
-Project Truss directly coordinates Matt-first engineering and GitHub-native outcomes. Invoke `project-truss:setup` once per repository, then use `project-truss:start` for normal work. `shape`, `resolve`, `close`, and `advanced-user-input` are also callable when intentionally entering one stage; each returns control to Start. Ordinary work remains direct. Governed work uses GitHub issues and native relationships, Git, pull requests, reviews, integration, and current worktrees as lifecycle truth; CI/status checks are optional provider context.
+Project Truss is the user-facing harness; Matt skills are invoked techniques. Users normally run `project-truss:setup` once and `project-truss:start` thereafter. Intentional entry into `shape`, `resolve`, `close`, or `advanced-user-input` returns control to Start.
 
-Commands below use `PROJECT_TRUSS_ROOT` for the absolute installed plugin root, resolved from the active Project Truss skill location.
+GitHub, Git, reviews, integration, and current worktrees are lifecycle truth. Optional provider checks, labels, milestones, Projects, and comments are useful views but do not grant Ready or Done. Truss adds no lifecycle database.
 
-## Entry and stages
+## Repository profiles
 
-`setup` inspects repository truth and previews the smallest Matt-compatible configuration. It auto-detects safe defaults when no JSON is supplied; add `-Apply true` only after a material choice is settled:
+Setup records one exact `Repository Profile:` marker and managed guidance. It discovers, but never invents, repository context, scientific data/benchmark/research paths, and validation commands.
 
-```bash
-"$PROJECT_TRUSS_ROOT/scripts/project-truss.sh" -Action Setup -RepoRoot . \
-  -SetupJson '{"repository":"OWNER/REPO","instruction_file":"AGENTS.md","domain_layout":"single-context","triage_enabled":true,"available_methods":[]}'
-```
+- `application-development`: shape observable behavior, use TDD for durable behavior, implement, review Standards and Spec, merge, close.
+- `scientific-computing`: shape falsifiable claims, resolve sources/formulation/oracles, run numerical experiments, implement only when needed, review scientific evidence, classify the result, close or merge.
+- `general`: retain repository-defined verification behavior.
 
-It preserves unrelated instructions and writes one managed Agent skills block plus the selected `docs/agents/` files. It does not create lifecycle state.
+The scientific benchmark and evidence grammar is defined in [SCIENTIFIC.md](SCIENTIFIC.md).
 
-`start` calls `"$PROJECT_TRUSS_ROOT/scripts/project-truss.sh" -Action Plan` and owns a continuation loop without requiring the user to name internal skills. Plan chooses:
+## Start and lanes
 
-- `direct` for ordinary work with no durable coordination;
-- `light` for one tracked issue/PR without a full resolution set;
-- `governed` for multiple units, delegation, releases, high-risk work, or explicit governance.
+Start reads `CONTEXT.md` or `CONTEXT-MAP.md`, the nearest context, ADRs, profile guidance, Git/GitHub state, and available Matt skills. Plan chooses:
 
-Each stage returns a continuation token with the next action, evidence, blockers, and safe retry count. Start consumes it instead of handing the user an unfinished intermediate stage:
+- `direct` for work needing no durable coordination;
+- `light` for one standalone issue/PR;
+- `governed` for explicit governance, multiple units, delegation, a release/milestone, or unsafe context size.
 
-- `shape` grills when required and publishes Matt root/leaf contracts directly to GitHub;
-- `resolve` claims one explicit singleton or multi-leaf atomic set in one worktree, branch, and pull request;
-- `close` runs shared Standards review, per-ticket Spec review, verification, merge, and roll-up;
-- `advanced-user-input` handles only material decisions or authority.
+Every stage returns a continuation token. Start consumes it until direct completion, a named blocker, or truthful closeout. Missing scientific claims or evidence plans route into a focused Start interview; they do not justify silent termination.
 
-Before any new Start entry, Start reads the configured `CONTEXT.md` or `CONTEXT-MAP.md` and nearest context, extracts the relevant shared terms, and reports the context files and vocabulary status in Plan. Missing context or unreviewed vocabulary routes back to Start; missing or fuzzy terms invoke Matt's `domain-modeling` plus `grilling` one question at a time and update the glossary. Governed new outcomes and material rescope must confirm vocabulary before Shape; clear light work may continue without an interview. Context is a glossary, not a lifecycle ledger.
+An existing PR with no matching Truss resolution receipt stays direct. Truss reviews, merges with authority, and cleans it without manufacturing an issue or receipt.
 
-Before governed work, Start verifies repository setup and required method capabilities. Missing setup routes to Setup. Each method is reported as `invocable`, `missing`, or `not_triggered`; only a triggered `missing` method blocks governed work. Light work reports missing optional methods without blocking. Current model-invocable routes include `codebase-design`, `wizard`, and `writing-for-agents` in addition to the engineering disciplines listed in `METHODS.md`.
+## GitHub contracts
 
-For an existing PR, Start runs Plan with `-Repository OWNER/REPO -PullRequest N`. Plan reads the PR's linked closing issues and canonical resolution receipts from live GitHub. No matching receipt means ordinary review, merge authority, and safe Git cleanup without Shape, Resolve, Close, a synthetic leaf, or `ResolutionJson`; a matching receipt retains the full governed lifecycle. Unavailable or malformed evidence blocks.
+Application roots use Problem Statement, Solution, User Stories, Implementation Decisions, Testing Decisions, Out of Scope, and Further Notes. Application standalone issues use What to build, Acceptance criteria, and Blocked by; leaves add Parent.
 
-Plan infers current Matt shaping, quality, and repository-profile methods. Governed ambiguous outcomes and material rescope use Start's direct `grilling` plus active `domain-modeling` path; complete scope skips the interview. Code review is retained for published light changes; surface minimization and cutthroat cleanup are reserved for high-risk or structural changes. Stable behavior requires TDD, while scientific-computing code additionally requires `scientific-coding-and-testing`.
+Scientific roots use Scientific Question, Falsifiable Claims, Evidence and Sources, Mathematical or Numerical Formulation, Benchmark and Validation Plan, Acceptance and Falsification Criteria, Out of Scope, and Further Notes. Scientific standalone issues use Claim to Establish, Inputs and Sources, Experiment or Implementation, Acceptance and Falsification Criteria, Required Evidence, and Blocked by; leaves add Parent.
 
-Every governed Plan has a non-null `next_action`. After each internal stage, Start re-reads authoritative Status and continues. Failed verification or review routes through diagnosis, repair, and retry. Intermediate publication, implementation, PR, review, merge, and cleanup-preparation states are never completion.
+Standalone issues never require parents. Roots/leaves are only for genuine decomposition. One explicitly selected atomic resolution set may share an owner, synchronized implementation base, branch, attached worktree, receipt, and PR; independent issues do not.
 
-Wayfinder is a native, pre-Shape decision path for outcomes that exceed one safe context. Its map and `## Question` tickets are source context only. Shape creates fresh Project Truss root and leaf issues; Wayfinder metadata never becomes lifecycle evidence.
+Labels are preserved and descriptive. `agent-shaped` is advisory. Milestones represent real coordinated targets. An explicit GitHub Project owner/number may receive idempotent issue/PR memberships through native `gh project`; fields and Status remain non-authoritative.
 
-## Git synchronization
+## Synchronization
 
-Resolve prepares its implementation base from live Git state before creating a branch or worktree:
+Before a resolution branch/worktree, run:
 
 ```bash
 "$PROJECT_TRUSS_ROOT/scripts/project-truss.sh" -Action Prepare -RepoRoot .
 ```
 
-Prepare parses current worktrees and tracking configuration to identify the canonical checkout, primary remote, and remote default branch without assuming `origin` or `main`. It requires the canonical checkout to be clean and on that default branch, fetches only the primary remote with pruning, performs a fast-forward-only merge, and requires the local and remote-tracking heads to match. The returned full `implementation_base` is captured only after synchronization.
+Prepare discovers the canonical checkout, primary remote, and live default branch, fetches with pruning, requires clean state, and advances only by fast-forward. It never assumes `origin/main`, resets, rebases, stashes, or discards work. The returned full commit is the implementation base; Resolve revalidates the exact object supplied as `PreparationJson`.
 
-Dirty, detached, non-default, ahead, diverged, ambiguous, untracked, or unavailable state fails with a canonical blocker. Prepare never resets, rebases, stashes, discards, or silently chooses a fallback. The feature branch/worktree must be created from the returned base. Initial Resolve receives that exact object as `PreparationJson`, revalidates its local-default and remote-tracking refs, and verifies that the invocation cwd, current branch, Git toplevel, and absolute receipt worktree agree.
+After a merged PR and deleted remote head, Close runs the exact-outcome Cleanup action. It fetches/prunes, fast-forwards the canonical default, and removes only the clean verified outcome worktree/branch when authorized. Active, protected, dirty, diverged, manually deleted, non-GitHub, mismatched, and unverified branches are retained with reasons. Squash/rebase deletion requires exact merged-PR head proof.
 
-## Issue contracts
-
-Root specifications use:
-
-1. Problem Statement
-2. Solution
-3. User Stories
-4. Implementation Decisions
-5. Testing Decisions
-6. Out of Scope
-7. Further Notes
-
-Standalone issues use:
-
-1. What to build
-2. Acceptance criteria
-3. Blocked by
-
-Leaf tickets use the standalone sections plus:
-
-1. Parent
-2. What to build
-3. Acceptance criteria
-4. Blocked by
-
-Canonical headings, common aliases, and extra context headings are accepted; semantic scope, acceptance, and dependency content remain required. A parent/leaf hierarchy is optional.
-
-## Lifecycle truth
-
-Each standalone issue or leaf derives Ready, Claimed, In review, Blocked, or Done from current contracts, dependencies, claims, pull requests, reviews, and closure evidence. Closed `NOT_PLANNED`/cancelled and explicitly deferred issues derive terminal `Cancelled`/`Deferred` states. Labels, milestones, Project fields, and optional status checks do not derive state.
-
-The full implementation-base SHA remains the shared diff boundary and stale-head guard. There is no provider-specific planning-artifact scan or second persistent state store.
-
-## Resolution sets
-
-Resolve defaults to the addressed standalone issue or leaf. A set of several issues requires explicit selection and is for one atomic change only; independent issues use separate claims, worktrees, branches, and PRs. Every member must be executable, have no competing claim or PR, and have no open blocker outside the selected set. Dependencies within an atomic set become pull-request constraints.
-
-Every member records one identical canonical receipt: sorted issues, owner, implementation base, branch, worktree, and optional PR. Missing or conflicting receipts stop as `claim_conflict` or `state_contradiction`. GitHub has no multi-issue transaction, so Truss uses full-set preflight and post-write verification and stops on any partial mutation.
-
-## Descriptive labels and Projects
-
-Shape preserves existing labels and may add explicitly requested descriptive labels. Labels can also be advisory routing/status hints; none are lifecycle proof. The advisory Matt `ready-for-agent` role maps to `agent-shaped`.
-
-An optional GitHub Project projection requires an explicit owner and project number. Truss uses native `gh project view`, `item-list`, and `item-add`; the `gh projects` extension is optional. It adds missing issue/PR memberships idempotently and paginates bounded output. Membership is advisory unless `required:true`; it never creates a Project, changes fields, or uses Project metadata as lifecycle input.
-
-The public Project action executes and verifies one membership at a time:
-
-```bash
-"$PROJECT_TRUSS_ROOT/scripts/project-truss.sh" -Action Project -ProjectionJson '{"owner":"OWNER","project":7,"url":"ISSUE_OR_PR_URL","ensure":true}'
-```
+Git 2.43 has no native `post-fetch` hook, and `post-merge` cannot observe a remote GitHub PR merge. Explicit Prepare and Cleanup actions remain the synchronization points.
 
 ## Closeout
 
-For governed resolutions, Close reviews Standards once over the shared diff and Spec once per selected leaf. It requires matching receipts, checked acceptance, one shared PR/head, clear review state, healthy integration, and clean source state. Optional status checks are observed when available but never required for closeout. After merge, every selected leaf must derive Done before the root or milestone closes.
+Application closeout requires checked criteria, repository-selected verification, clear review, healthy integration, source cleanliness, and matching GitHub/Git evidence.
 
-After GitHub confirms the pull request merged and its remote head branch is deleted, Close returns to the clean canonical default checkout and runs:
+Scientific closeout additionally requires a valid evidence packet and separate judgments for source, formulation, numerical verification, empirical validation, reproducibility, and implementation promotion. `FALSIFIED` is a valid successful classification. A research-only scientific issue may close without a PR when its contract and evidence allow it.
 
-```bash
-"$PROJECT_TRUSS_ROOT/scripts/project-truss.sh" -Action Cleanup -RepoRoot . -Repository OWNER/REPO \
-  -CleanupJson '{"pull_request":123,"branch":"codex/issue-123","cleanup_authorized":true}'
-```
-
-Cleanup fetches/prunes and fast-forwards the discovered default branch again before retirement. When the canonical checkout is cleanly on the outcome branch, it switches back automatically; the outcome worktree is derived when possible. Cleanup authority is explicit. It removes only the recorded clean outcome worktree and branch; current branches, protected defaults, ruleset-governed branches, worktree-active branches, dirty worktrees, mismatched heads, non-primary-remote branches, and unverified state are skipped with a reason. Graph-merged branches use ancestry-checked compare-and-delete. Squash/rebase branches use the same expected-head guard only after the exact GitHub PR is confirmed merged, the remote head is absent, and the local head matches the merged PR head.
-
-The generic Git skill may use `git sync --delete` or `git clean-gone --delete --no-fetch` for authorized repository-wide cleanup. Project Truss intentionally uses a narrower exact-outcome equivalent so it cannot retire unrelated branches. If required Git or GitHub evidence is unavailable, Cleanup fails loudly.
-
-Git 2.43 has no native `post-fetch` hook, so Project Truss does not install one. A `post-merge` hook is also incomplete because it observes local merge/pull paths, not a remote GitHub PR merge. Explicit Prepare and Cleanup lifecycle actions are the authoritative synchronization points; no hook or second lifecycle database is added.
+CI/status checks and command-line transcripts are never extra mandatory gates. Failed verification, review, or scientific evidence routes to diagnosis or evidence repair and retry.

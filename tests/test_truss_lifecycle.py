@@ -8,11 +8,14 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import yaml
+
 from scripts.lib.command_support import Context, ScriptError
 from scripts.lib.commands.project import command_project_truss
 from scripts.lib.truss_github import GitHubClient, GitHubObservationError, load_fixture
 from scripts.lib.truss_policy import (
     FinalHealth,
+    ISSUE_PROFILES,
     OutcomeSnapshot,
     WorkRequest,
     closeout_findings,
@@ -30,7 +33,7 @@ Durable coding outcomes need one truthful coordination layer.
 
 ## Solution
 
-Coordinate work through native GitHub state while using Matt-first engineering methods.
+Coordinate work through native GitHub state while using profile-aware techniques.
 
 ## User Stories
 
@@ -154,13 +157,11 @@ class DirectAndShapeTests(unittest.TestCase):
         plan = plan_work(request)
         self.assertFalse(plan.question_required)
         self.assertNotIn("grill-with-docs", plan.method_routes)
-        self.assertEqual("missing", plan.method_routes["scientific-coding-and-testing"])
-        for method in ("grilling", "domain-modeling", "tdd", "code-review",
+        self.assertEqual("not_triggered", plan.method_routes["tdd"])
+        for method in ("grilling", "domain-modeling", "code-review",
                        "cutthroat-code-cleanup", "minimize-code-surface"):
             self.assertEqual("invocable", plan.method_routes[method])
-        self.assertEqual(("method_capability_missing",), plan.blockers)
-        self.assertIsNone(plan.next_skill)
-        self.assertEqual("stop: method_capability_missing", plan.to_dict()["next_action"])
+        self.assertEqual((), plan.blockers)
         ungrilled = plan_work(WorkRequest(mode="governed", explicit=True, matt_configured=True, new_outcome=True,
             vocabulary_confirmed=True,
             available_methods=("grilling", "domain-modeling")))
@@ -173,6 +174,42 @@ class DirectAndShapeTests(unittest.TestCase):
         recovery = plan_work(WorkRequest(explicit=True, matt_configured=True, failed_gate="verification",
                                          available_methods=("diagnosing-bugs",)))
         self.assertEqual("invocable", recovery.method_routes["diagnosing-bugs"])
+
+    def test_scientific_start_establishes_claim_and_evidence_before_methods(self):
+        base = dict(
+            mode="governed", explicit=True, start_entry=True,
+            repository_profile="scientific-computing", matt_configured=True,
+            context_available=True, context_reviewed=True,
+            available_methods=("research", "domain-modeling", "prototype", "tdd"),
+        )
+        missing_claim = plan_work(WorkRequest(**base))
+        self.assertEqual(("scientific_claim_required",), missing_claim.blockers)
+        self.assertEqual("start", missing_claim.next_skill)
+        self.assertIn("falsifiable claim", missing_claim.scientific_protocol["next_question"])
+
+        missing_evidence = plan_work(WorkRequest(
+            **base, scientific_question="Does the model recover the dilute limit?",
+            falsifiable_claims=("Z tends to one as density tends to zero.",),
+        ))
+        self.assertEqual(("scientific_evidence_required",), missing_evidence.blockers)
+        ready = plan_work(WorkRequest(
+            **base, scientific_question="Does the model recover the dilute limit?",
+            falsifiable_claims=("Z tends to one as density tends to zero.",),
+            scientific_evidence_plan=("Compare against the analytical limit with justified tolerance.",),
+            primary_source_uncertainty=True, formulation_change=True,
+            numerical_design_uncertain=True, stable_behavior_change=True,
+            required_methods=("tdd",),
+        ))
+        self.assertEqual((), ready.blockers)
+        for method in ("research", "domain-modeling", "prototype"):
+            self.assertEqual("invocable", ready.method_routes[method])
+        self.assertEqual("not_triggered", ready.method_routes["tdd"])
+        tdd = plan_work(WorkRequest(
+            **base, scientific_question="Question", falsifiable_claims=("Claim",),
+            scientific_evidence_plan=("Evidence",), stable_behavior_change=True,
+            durable_software_contract=True,
+        ))
+        self.assertEqual("invocable", tdd.method_routes["tdd"])
 
     def test_start_requires_context_review_then_shared_vocabulary(self):
         base = WorkRequest(
@@ -214,7 +251,7 @@ class DirectAndShapeTests(unittest.TestCase):
         self.assertEqual("invocable", design.method_routes["codebase-design"])
     def test_contract_and_issue_body_fail_closed_as_one_behavior_family(self):
         contract = load_contract(ROOT / "docs/project-truss/contract.yml")
-        self.assertEqual(2, contract["version"])
+        self.assertEqual(3, contract["version"])
         self.assertEqual(["setup", "start", "shape", "resolve", "close", "advanced-user-input"], contract["public_skills"])
         self.assertEqual(
             ["setup", "start", "shape", "resolve", "close", "advanced-user-input"],
@@ -273,6 +310,20 @@ Retired.
             )
             with self.assertRaisesRegex(ValueError, "unknown contract key"):
                 load_contract(invalid)
+
+    def test_github_forms_project_the_profile_contract_headings(self):
+        forms = {
+            ("application-development", "root"): "outcome.yml",
+            ("application-development", "standalone"): "standalone.yml",
+            ("application-development", "leaf"): "leaf.yml",
+            ("scientific-computing", "root"): "scientific-outcome.yml",
+            ("scientific-computing", "standalone"): "scientific-standalone.yml",
+            ("scientific-computing", "leaf"): "scientific-leaf.yml",
+        }
+        for key, filename in forms.items():
+            form = yaml.safe_load((ROOT / ".github/ISSUE_TEMPLATE" / filename).read_text(encoding="utf-8"))
+            labels = [item["attributes"]["label"] for item in form["body"]]
+            self.assertEqual(list(ISSUE_PROFILES[key[0]][key[1]]), labels, filename)
 
 
 class LifecycleAndDigestTests(unittest.TestCase):
@@ -415,7 +466,7 @@ class TruthfulCloseoutTests(unittest.TestCase):
             root = Path(directory)
             ctx = Context(ROOT / "scripts/project-truss.sh", ROOT, "scripts/project-truss.sh", "project-truss.sh", [], invocation_cwd=root)
 
-            with patch("scripts.lib.commands.project.GitHubClient") as github:
+            with patch("scripts.lib.commands.project.GitHubClient") as github, patch("scripts.lib.commands.project._git_text", return_value=""):
                 github.return_value.snapshot.return_value = current
                 code, payload = invoke(ctx, {
                     "Action": "Closeout",
