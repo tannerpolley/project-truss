@@ -1,5 +1,7 @@
 # Project Truss
 
+> **Archived:** Project Truss has been superseded by the private [Scientific Codex](https://github.com/tannerpolley/scientific-codex) plugin, which is self-contained and designed for scientific computing, numerical analysis, research synthesis, and manuscript work. Project Truss is retained as history and should not be installed for new work.
+
 Project Truss coordinates Matt-first engineering with GitHub-native lifecycle control. It adds issue structure, atomic resolution sets, dependency ordering, pull-request continuity, CI-aware closeout, descriptive labels, milestones, and optional GitHub Projects projection while leaving ordinary coding direct.
 
 The canonical product and runtime contract is [docs/project-truss/README.md](docs/project-truss/README.md).
